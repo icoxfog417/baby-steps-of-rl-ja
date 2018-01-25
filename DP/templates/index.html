@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ static_url('css/index.css') }}" type="text/css"/>
+<script src="//cdnjs.cloudflare.com/ajax/libs/vue/2.5.13/vue.min.js" type="text/javascript"></script>
+{% end %}
+
+{% block bottom %}
+<script type="text/javascript" src="{{ static_url('js/index.js') }}"></script>
+{% end %}
+
+{% block body %}
+<div class="container">
+    <p class="title-top">
+        <h1 class="title">Markov Decision Process Simulator</h1>
+    </p>
+    <div id="app">
+        <div class="columns">
+            <div class="column is-three-fifths">
+                <div v-for="row in grid">
+                    <div v-for="cell in row" class="cell">
+                        <div v-if="simulation" v-bind:class="['cell-content', getCellAttribute(cell.index)]">
+                            Simulate!
+                        </div>
+                        <div v-else 
+                            @click="selectCell(cell.index)"
+                            @dblclick="clearAttribute(cell.index)"
+                            v-bind:class="['cell-content', getCellAttribute(cell.index)]">
+                        </div>
+                    </div>
+                    <br style="clear:both"/>
+                </div>
+            </div>
+            <div class="column">
+                <h4 class="title is-4">Area (Row x Column)</h4>
+                <div class="field has-addons">
+                    <p class="control">
+                        <span class="select">
+                        <select v-model="row" type="number">
+                            <option>2</option>
+                            <option>3</option>
+                            <option>4</option>
+                            <option>5</option>
+                            <option>6</option>
+                        </select>
+                        </span>
+                    </p>
+                    <p class="control">
+                        <span class="select">
+                        <select v-model="column" type="number">
+                            <option>2</option>
+                            <option>3</option>
+                            <option>4</option>
+                            <option>5</option>
+                            <option>6</option>
+                        </select>
+                        </span>
+                    </p>
+                    <button class="button" style="margin-left: 30px" @click="draw">Draw</button>
+                </div>
+                <h4 class="title is-4">Cell Setting</h4>
+                    <button class="button is-primary" @click="setTreasure">Treasure</button>
+                    <button class="button is-danger" @click="setDanger">Danger</button>
+                    <button class="button is-dark" @click="setBlock">Block</button>
+                <br/>
+                <hr/>
+                <h4 class="title is-4" style="color: mediumseagreen">Simulation</h4>
+                <button class="button is-primary is-outlined">Begin</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% end %}

@@ -1,0 +1,36 @@
+body {
+    font-family:-apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI","Noto Sans Japanese","ヒラギノ角ゴ ProN W3", Meiryo, sans-serif;
+}
+.title-top{
+    margin-top: 20px;
+}
+.cell{
+    width: 80px;
+    height: 80px;
+    border: 1px solid silver;
+    float: left;
+}
+.cell-content{
+    width: 100%;
+    height: 100%;
+}
+.cell-content.active{
+    background-color: whitesmoke;
+}
+.cell-content.treasure{
+    background-color: #00d1b2;
+}
+.cell-content.danger{
+    background-color: #ff3860;
+}
+.cell-content.block{
+    background-color: #363636;
+}
+.cell-content.agent{
+    width: 60px;
+    height: 60px;
+    margin: auto;
+    margin-top: 10px;
+    background: url(/static/images/agent.png);
+    background-size: 60px;
+}
