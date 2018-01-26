@@ -60,6 +60,21 @@ var app = new Vue({
                 return "agent"
             }
         },
+        simulate: function(){
+            var data = {
+                "grid": this.grid
+            }
+            fetch("/simulate", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            }).then(function(resp){
+                console.log(resp)
+            })
+        },
         selectCell: function(index){
             // [row, 0] is Agent point
             if(!(index[0] == (this.grid.length - 1) && index[1] == 0)){

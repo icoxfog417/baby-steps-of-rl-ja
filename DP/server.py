@@ -18,7 +18,9 @@ class IndexHandler(tornado.web.RequestHandler):
 class SimulateHandler(tornado.web.RequestHandler):
     
    def post(self):
-        self.render("index.html")
+        data = tornado.escape.json_decode(self.request.body)
+        print(data)
+        return {}
 
 
 class Application(tornado.web.Application):
@@ -43,6 +45,7 @@ def main():
     tornado.options.parse_command_line()
     app = Application()
     app.listen(options.port)
+    print("Run server on port: {}".format(options.port))
     tornado.ioloop.IOLoop.current().start()
 
 
