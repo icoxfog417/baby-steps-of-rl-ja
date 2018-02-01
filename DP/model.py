@@ -1,21 +1,27 @@
 from enum import Enum
+import numpy as np
 
 
-class GridMove(Enum):
-    UP = 0
-    DOWN = 1
+class Direction(Enum):
+    UP = 1
+    DOWN = -1
     LEFT = 2
-    RIGHT = 3
+    RIGHT = -2
 
 
 class Environment():
 
-    def __init__(self, grid):
+    def __init__(self, grid, move_prob=0.8):
         self.grid = grid
         self.agent_position = []
+        
         # Default reward is minus like poison swamp.
         # It means agent have to reach the goal fast!
         self.default_reward = -0.04
+
+        # Agent can move to decided direction in move_prob.
+        # It means agent will move different direction in (1 - move_prob).
+        self.move_prob = move_prob
         self.reset()
     
     def reset(self):
@@ -24,22 +30,37 @@ class Environment():
         return self.agent_position
 
     def action_space(self):
-        return [GridMove.UP, GridMove.DOWN, 
-                GridMove.LEFT, GridMove.RIGHT]
+        return [Direction.UP, Direction.DOWN, 
+                Direction.LEFT, Direction.RIGHT]
 
     def step(self, action):
         previous = list(self.agent_position)
         reward = self.default_reward
         done = False
 
+        # Calculate action probability
+        actions = self.action_space()
+        opposite_direction = Direction(action.value * -1)
+        action_probs = []
+        for a in actions:
+            prob = 0
+            if a == action:
+                prob = self.move_prob
+            elif a != opposite_direction:
+                prob = (1 - self.move_prob) / 2
+            action_probs.append(prob)
+        
+        # Select action
+        real_action = np.random.choice(actions, p=action_probs)
+
         # Move the agent
-        if action == GridMove.UP:
+        if real_action == Direction.UP:
             self.agent_position[0] -= 1
-        if action == GridMove.DOWN:
+        if real_action == Direction.DOWN:
             self.agent_position[0] += 1
-        if action == GridMove.LEFT:
+        if real_action == Direction.LEFT:
             self.agent_position[1] -= 1
-        if action == GridMove.RIGHT:
+        if real_action == Direction.RIGHT:
             self.agent_position[1] += 1
 
         # Check out of grid
