@@ -17,15 +17,15 @@
     <div id="app">
         <div class="columns">
             <div class="column is-three-fifths">
-                <div v-for="row in grid">
-                    <div v-for="cell in row" class="cell">
-                        <div v-if="simulation" v-bind:class="['cell-content', getCellAttribute(cell.index)]">
+                <div v-for="(row, rowIndex) in grid">
+                    <div v-for="(cell, columnIndex) in row" class="cell">
+                        <div v-if="simulation" v-bind:class="['cell-content', getCellAttribute(rowIndex, columnIndex)]">
                             Simulate!
                         </div>
                         <div v-else 
-                            @click="selectCell(cell.index)"
-                            @dblclick="clearAttribute(cell.index)"
-                            v-bind:class="['cell-content', getCellAttribute(cell.index)]">
+                            @click="selectCell(rowIndex, columnIndex)"
+                            @dblclick="clearAttribute(rowIndex, columnIndex)"
+                            v-bind:class="['cell-content', getCellAttribute(rowIndex, columnIndex)]">
                         </div>
                     </div>
                     <br style="clear:both"/>

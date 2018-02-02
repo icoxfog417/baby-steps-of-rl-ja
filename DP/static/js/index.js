@@ -35,17 +35,13 @@ var app = new Vue({
                 if(columnIndex == 0){
                     this.grid.push([]);
                 }
-                var cell = {
-                    index: [rowIndex, columnIndex],
-                    attribute: 0,
-                    rewards: [0, 0, 0, 0]
-                }
-                this.grid[rowIndex].push(cell);
+                var cellAttribute = 0;
+                this.grid[rowIndex].push(cellAttribute);
             }
         },
-        getCellAttribute: function(index){
-            var cell = this.grid[index[0]][index[1]];
-            switch(cell.attribute){
+        getCellAttribute: function(row, column){
+            var attribute = this.grid[row][column];
+            switch(attribute){
                 case 1:
                     return "treasure"
                 case -1:
@@ -53,10 +49,10 @@ var app = new Vue({
                 case 9:
                     return "block"
             }
-            if(this.selectedIndex != null && (this.selectedIndex[0] == index[0] && this.selectedIndex[1] == index[1])){
+            if(this.selectedIndex != null && (this.selectedIndex[0] == row && this.selectedIndex[1] == column)){
                 return "active"
             }
-            if(index[0] == (this.grid.length - 1) && index[1] == 0){
+            if(row == (this.grid.length - 1) && column == 0){
                 return "agent"
             }
         },
@@ -75,10 +71,10 @@ var app = new Vue({
                 console.log(resp)
             })
         },
-        selectCell: function(index){
+        selectCell: function(row, column){
             // [row, 0] is Agent point
-            if(!(index[0] == (this.grid.length - 1) && index[1] == 0)){
-                this.selectedIndex = index;
+            if(!(row == (this.grid.length - 1) && column == 0)){
+                this.selectedIndex = [row, column];
             }
         },
         setTreasure: function(){
@@ -90,16 +86,15 @@ var app = new Vue({
         setBlock: function(){
             this.setAttribute(9);
         },
-        clearAttribute: function(index){
-            this.selectedIndex = index;
+        clearAttribute: function(row, column){
+            this.selectedIndex = [row, column];
             this.setAttribute(0);
-            this.selectedIndex = null;
         },
-        setAttribute: function(attr){
+        setAttribute: function(attribute){
             var index = this.selectedIndex;
             if(this.selectedIndex != null){
-                var cell = this.grid[index[0]][index[1]];
-                cell.attribute = attr;
+                this.grid[index[0]][index[1]] = attribute;
+                this.selectedIndex = null;
             }
         }
     }
