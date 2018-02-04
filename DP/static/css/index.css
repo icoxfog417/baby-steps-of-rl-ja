@@ -13,6 +13,8 @@ body {
 .cell-content{
     width: 100%;
     height: 100%;
+    text-align: center;
+    line-height: 80px;
 }
 .cell-content.active{
     background-color: whitesmoke;
@@ -33,4 +35,19 @@ body {
     margin-top: 10px;
     background: url(/static/images/agent.png);
     background-size: 60px;
+}
+.cell-content.v5{
+    background-color: rgba(0, 209, 178, 0.8);
+}
+.cell-content.v4{
+    background-color: rgba(0, 209, 178, 0.6);
+}
+.cell-content.v3{
+    background-color: rgba(0, 209, 178, 0.3);
+}
+.cell-content.v2{
+    background-color: rgba(0, 209, 178, 0.1);
+}
+.cell-content.v1{
+    background-color: rgba(0, 209, 178, 0);
 }

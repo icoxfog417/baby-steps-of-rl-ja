@@ -2,25 +2,30 @@ import os
 import json
 import tornado.web
 import tornado.escape
-import tornado.ioloop
-from tornado.options import define, options, parse_command_line
-
-
-define("port", default=8888, help="run on the given port", type=int)
+from DP.environment import Environment
+from DP.planner import ValuteIterationPlanner, PolicyIterationPlanner
 
 
 class IndexHandler(tornado.web.RequestHandler):
-    
-   def get(self):
+
+    def get(self):
         self.render("index.html")
 
 
-class SimulateHandler(tornado.web.RequestHandler):
-    
-   def post(self):
+class PlanningHandler(tornado.web.RequestHandler):
+
+    def post(self):
         data = tornado.escape.json_decode(self.request.body)
-        print(data)
-        return {}
+        grid = data["grid"]
+        plan_type = data["plan"]
+        env = Environment(grid)
+        if plan_type == "value":
+            planner = ValuteIterationPlanner(env)
+        elif plan_type == "policy":
+            planner = PolicyIterationPlanner(env)
+        result = planner.plan()
+        planner.log.append(result)
+        self.write({"log": planner.log})
 
 
 class Application(tornado.web.Application):
@@ -28,7 +33,7 @@ class Application(tornado.web.Application):
     def __init__(self):
         handlers = [
             (r"/", IndexHandler),
-            (r"/simulate", SimulateHandler),
+            (r"/plan", PlanningHandler),
         ]
 
         settings = dict(
@@ -39,15 +44,3 @@ class Application(tornado.web.Application):
         )
 
         super(Application, self).__init__(handlers, **settings)
-
-
-def main():
-    tornado.options.parse_command_line()
-    app = Application()
-    app.listen(options.port)
-    print("Run server on port: {}".format(options.port))
-    tornado.ioloop.IOLoop.current().start()
-
-
-if __name__ == "__main__":
-    main()

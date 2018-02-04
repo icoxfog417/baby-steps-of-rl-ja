@@ -2,6 +2,11 @@ class Planner():
 
     def __init__(self, env):
         self.env = env
+        self.log = []
+
+    def initialize(self):
+        self.env.reset()
+        self.log = []
 
     def transitions_at(self, state, action):
         for a, prob in zip(self.env.action_space,
@@ -31,6 +36,7 @@ class ValuteIterationPlanner(Planner):
         super().__init__(env)
 
     def plan(self, gamma=0.9, threshold=0.0001):
+        self.initialize()
         actions = self.env.action_space
         V = {}
         for s in self.env.states:
@@ -39,7 +45,10 @@ class ValuteIterationPlanner(Planner):
 
         while True:
             delta = 0
+            self.log.append(self.dict_to_grid(V))
             for s in V:
+                if not self.env.can_action_at(s):
+                    continue
                 expected_rewards = []
                 for a in actions:
                     r = 0
@@ -49,6 +58,7 @@ class ValuteIterationPlanner(Planner):
                 max_reward = max(expected_rewards)
                 delta = max(delta, abs(max_reward - V[s]))
                 V[s] = max_reward
+
             if delta < threshold:
                 break
 
@@ -63,7 +73,8 @@ class PolicyIterationPlanner(Planner):
         super().__init__(env)
         self.policy = {}
 
-    def initialize_policy(self):
+    def initialize(self):
+        super().initialize()
         self.policy = {}
         actions = self.env.action_space
         states = self.env.states
@@ -99,7 +110,7 @@ class PolicyIterationPlanner(Planner):
         return V
 
     def plan(self, gamma=0.9, threshold=0.0001):
-        self.initialize_policy()
+        self.initialize()
         states = self.env.states
         actions = self.env.action_space
 
@@ -110,6 +121,8 @@ class PolicyIterationPlanner(Planner):
             update_stable = True
             # Estimate expected rewards under current policy
             V = self.estimate_by_policy(gamma, threshold)
+            self.log.append(self.dict_to_grid(V))
+
             for s in states:
                 # Get action following to the policy (choose max prob's action)
                 policy_action = take_max_action(self.policy[s])

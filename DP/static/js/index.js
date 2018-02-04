@@ -7,7 +7,9 @@ var app = new Vue({
         column: 4,
         grid: [],
         selectedIndex: null,
-        simulation: false
+        simulation: false,
+        log: [],
+        logIndex: 0
     },
     created: function(){
         this.draw();
@@ -18,9 +20,28 @@ var app = new Vue({
         this.selectedIndex = [1, 1];
         this.setBlock();
     },
+    computed: {
+        targetGrid: function () {
+            if(!this.simulation){
+                return this.grid;
+            }else{
+                return this.log[this.logIndex];
+            }
+        },
+        hasLog: function(){
+            if(this.log.length > 0){
+                return true;
+            }else{
+                return false;
+            }
+        }
+    },
     methods: {
         init: function(){
             this.selectedIndex = null;
+            this.simulation = false;
+            this.logIndex = 0;
+            this.log = [];
         },
         draw: function(){
             this.init();
@@ -55,12 +76,28 @@ var app = new Vue({
             if(row == (this.grid.length - 1) && column == 0){
                 return "agent"
             }
+            if(this.simulation){
+                var value = this.log[this.logIndex][row][column];
+                if(value >= 0.8){
+                    return "v5"
+                }else if(value >= 0.6){
+                    return "v4"
+                }else if(value >= 0.3){
+                    return "v3"
+                }else if(value >= 0.1){
+                    return "v2"
+                }else{
+                    return "v1"                    
+                }
+            }
         },
-        simulate: function(){
+        plan: function(planType){
             var data = {
+                "plan": planType,
                 "grid": this.grid
             }
-            fetch("/simulate", {
+            var self = this;
+            fetch("/plan", {
                 method: "POST",
                 credentials: "same-origin",
                 headers: {
@@ -68,8 +105,35 @@ var app = new Vue({
                 },
                 body: JSON.stringify(data)
             }).then(function(resp){
-                console.log(resp)
+                return resp.json()
+            }).then(function(resp){
+                self.log = resp["log"];
+                self.play();
             })
+        },
+        play: function(){
+            this.logIndex = 0;
+            this.simulation = true;
+            var self = this;
+            var timer = setInterval(function(){
+                if(self.logIndex < self.log.length - 1){
+                    self.logIndex += 1;
+                }else{
+                    clearInterval(timer);
+                }
+            }, 1000);
+        },
+        stop: function(){
+            this.init();
+        },
+        value: function(row, column){
+            var attribute = this.grid[row][column];
+            if(attribute != 0 || (row == (this.grid.length -1) && column == 0)){
+                return "";
+            }
+            var value = this.log[this.logIndex][row][column];
+            var value = Math.floor(value * 1000) / 1000;
+            return value;
         },
         selectCell: function(row, column){
             // [row, 0] is Agent point
@@ -87,6 +151,9 @@ var app = new Vue({
             this.setAttribute(9);
         },
         clearAttribute: function(row, column){
+            if(this.simulation){
+                this.init();
+            }
             this.selectedIndex = [row, column];
             this.setAttribute(0);
         },

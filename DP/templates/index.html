@@ -19,8 +19,10 @@
             <div class="column is-three-fifths">
                 <div v-for="(row, rowIndex) in grid">
                     <div v-for="(cell, columnIndex) in row" class="cell">
-                        <div v-if="simulation" v-bind:class="['cell-content', getCellAttribute(rowIndex, columnIndex)]">
-                            Simulate!
+                        <div v-if="simulation"
+                             @dblclick="clearAttribute(rowIndex, columnIndex)"
+                             v-bind:class="['cell-content', getCellAttribute(rowIndex, columnIndex)]">
+                            <span>[[value(rowIndex, columnIndex)]]</span>
                         </div>
                         <div v-else 
                             @click="selectCell(rowIndex, columnIndex)"
@@ -65,7 +67,27 @@
                 <br/>
                 <hr/>
                 <h4 class="title is-4" style="color: mediumseagreen">Simulation</h4>
-                <button class="button is-primary is-outlined" @click="simulate">Begin</button>
+                <button class="button is-primary is-outlined" @click="plan('value')">Value Iteration</button>
+                <button class="button is-primary is-outlined" @click="plan('policy')">Policy Iteration</button>
+                <br/><br/>
+                <div class="field has-addons" v-if="hasLog">
+                    <p class="control">
+                      <a class="button" @click="play">
+                        <span class="icon is-small">
+                          <i class="fa fa-play"></i>
+                        </span>
+                        <span>Play</span>
+                      </a>
+                    </p>
+                    <p class="control">
+                      <a class="button" @click="stop">
+                        <span class="icon is-small">
+                          <i class="fa fa-stop"></i>
+                        </span>
+                        <span>End</span>
+                      </a>
+                    </p>
+                </div>
             </div>
         </div>
     </div>

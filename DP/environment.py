@@ -39,7 +39,7 @@ class Environment():
         #  9: block cell (can't locate agent)
         self.grid = grid
         self.agent_state = State()
-        
+
         # Default reward is minus like poison swamp.
         # It means agent have to reach the goal fast!
         self.default_reward = -0.04
@@ -48,7 +48,7 @@ class Environment():
         # It means agent will move different direction in (1 - move_prob).
         self.move_prob = move_prob
         self.reset()
-    
+
     def reset(self):
         # Locate agent at lower left corner
         self.agent_state = State(self.row_length - 1, 0)
@@ -72,8 +72,8 @@ class Environment():
         states = []
         for row in range(self.row_length):
             for column in range(self.column_length):
-                attribute = self.grid[row][column]
-                if attribute != 9:  # skip block cell
+                # Avoid the Block Cell
+                if self.grid[row][column] != 9:
                     states.append(State(row, column))
         return states
 
@@ -90,14 +90,14 @@ class Environment():
             action_probs.append(prob)
         return action_probs
 
-    def is_terminal(self, state):
+    def can_action_at(self, state):
         if self.grid[state.row][state.column] == 0:
-            return False
-        else:
             return True
+        else:
+            return False
 
     def transit(self, state, action):
-        if self.is_terminal(state):
+        if not self.can_action_at(state):
             # Already on the terminal cell
             return None, None, True
 
