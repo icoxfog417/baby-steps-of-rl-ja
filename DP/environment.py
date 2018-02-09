@@ -49,11 +49,6 @@ class Environment():
         self.move_prob = move_prob
         self.reset()
 
-    def reset(self):
-        # Locate agent at lower left corner
-        self.agent_state = State(self.row_length - 1, 0)
-        return self.agent_state
-
     @property
     def row_length(self):
         return len(self.grid)
@@ -77,18 +72,56 @@ class Environment():
                     states.append(State(row, column))
         return states
 
-    def get_action_probs(self, action):
+    def reset(self):
+        # Locate agent at lower left corner
+        self.agent_state = State(self.row_length - 1, 0)
+        return self.agent_state
+
+    def step(self, action):
+        next_state, reward, done = self.transit(self.agent_state, action)
+        if next_state is not None:
+            self.agent_state = next_state
+
+        return next_state, reward, done
+
+    def transit(self, state, action):
+        transition_probs = self.transit_func(state, action)
+        if len(transition_probs) == 0:
+            return None, None, True
+
+        next_states = []
+        probs = []
+        for s in transition_probs:
+            next_states.append(s)
+            probs.append(transition_probs[s])
+
+        next_state = np.random.choice(next_states, p=probs)
+        reward, done = self.reward_func(next_state)
+        return next_state, reward, done
+
+    def transit_func(self, state, action):
+        transition_probs = {}
+        if not self.can_action_at(state):
+            # Already on the terminal cell
+            return transition_probs
+
         actions = self.action_space
         opposite_direction = Direction(action.value * -1)
-        action_probs = []
+
         for a in actions:
             prob = 0
             if a == action:
                 prob = self.move_prob
             elif a != opposite_direction:
                 prob = (1 - self.move_prob) / 2
-            action_probs.append(prob)
-        return action_probs
+
+            next_state = self._move(state, a)
+            if next_state not in transition_probs:
+                transition_probs[next_state] = prob
+            else:
+                transition_probs[next_state] += prob
+
+        return transition_probs
 
     def can_action_at(self, state):
         if self.grid[state.row][state.column] == 0:
@@ -96,13 +129,10 @@ class Environment():
         else:
             return False
 
-    def transit(self, state, action):
+    def _move(self, state, action):
         if not self.can_action_at(state):
-            # Already on the terminal cell
-            return None, None, True
+            raise Exception("Can't move from here!")
 
-        reward = self.default_reward
-        done = False
         next_state = state.clone()
 
         # Move state by action
@@ -121,8 +151,18 @@ class Environment():
         if not (0 <= next_state.column < self.column_length):
             next_state = state
 
+        # Check the Agent bumped the block
+        if self.grid[next_state.row][next_state.column] == 9:
+            next_state = state
+
+        return next_state
+
+    def reward_func(self, state):
+        reward = self.default_reward
+        done = False
+
         # Check the attribute of next state
-        attribute = self.grid[next_state.row][next_state.column]
+        attribute = self.grid[state.row][state.column]
         if attribute == 1:
             # Get treasure! and game ends.
             reward = 1
@@ -131,15 +171,5 @@ class Environment():
             # Go to hell! and the game ends.
             reward = -1
             done = True
-        elif attribute == 9:
-            # Agent bumped the block
-            next_state = state
-        
-        return next_state, reward, done
 
-    def step(self, action):
-        action_probs = self.get_action_probs(action)
-        real_action = np.random.choice(self.action_space, p=action_probs)
-        next_state, reward, done = self.transit(self.agent_state, real_action)
-        self.agent_state = next_state
-        return self.agent_state, reward, done
+        return reward, done

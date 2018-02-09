@@ -9,11 +9,10 @@ class Planner():
         self.log = []
 
     def transitions_at(self, state, action):
-        for a, prob in zip(self.env.action_space,
-                           self.env.get_action_probs(action)):
-            next_state, reward, done = self.env.transit(state, a)
-            if next_state is None:
-                continue
+        transition_probs = self.env.transit_func(state, action)
+        for next_state in transition_probs:
+            prob = transition_probs[next_state]
+            reward, _ = self.env.reward_func(next_state)
             yield prob, next_state, reward
 
     def plan(self, gamma=0.9, threshold=0.0001):

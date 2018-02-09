@@ -5,39 +5,41 @@ import random
 from DP.environment import Environment
 
 
+class Agent():
+
+    def __init__(self, env):
+        self.actions = env.action_space
+
+    def action(self, state):
+        # This is Agent's Policy!
+        return random.choice(self.actions)
+
+
 def main():
     # Make grid maze environment
-    grid = get_sample_grid()
-    env = Environment(grid)
-
-    # Try 100 game
-    for i in range(100):
-        # Initialize agent position
-        position = env.reset()
-        goal = False
-        total_reward = 0
-
-        # Agent can move up to 10
-        for t in range(10):
-            action = random.choice(env.action_space)
-            position, reward, done = env.step(action)
-            total_reward += reward
-            if done:
-                goal = True
-                break
-        
-        print("Episode {}: Agent {}, get total reward {}.".format(i,
-              "reached goal" if goal else "timed out", total_reward))
-
-
-def get_sample_grid():
-    # 3 x 4 grid
     grid = [
         [0, 0, 0, 1],
         [0, 9, 0, -1],
         [0, 0, 0, 0]
-        ]
-    return grid
+    ]
+    env = Environment(grid)
+    agent = Agent(env)
+
+    # Try 100 game
+    for i in range(100):
+        # Initialize agent position
+        state = env.reset()
+        total_reward = 0
+
+        # Agent can move up to 10
+        for t in range(10):
+            action = agent.action(state)
+            state, reward, done = env.step(action)
+            total_reward += reward
+            if done:
+                break
+
+        print("Episode {}: Agent gets {} reward.".format(i, total_reward))
 
 
 if __name__ == "__main__":
