@@ -36,7 +36,7 @@ class QLearningAgent(ELAgent):
                 self.show_reward_log(episode=e)
 
 
-def main():
+def train():
     agent = QLearningAgent()
     env = gym.make("FrozenLakeEasy-v0")
     agent.learn(env, episode_count=3000)
@@ -45,4 +45,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    train()

@@ -67,7 +67,7 @@ class ActorCritic():
         return actor, critic
 
 
-def main():
+def train():
     trainer = ActorCritic(Actor, Critic)
     env = gym.make("FrozenLakeEasy-v0")
     actor, critic = trainer.train(env, episode_count=3000)
@@ -76,4 +76,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    train()

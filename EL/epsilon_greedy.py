@@ -37,7 +37,7 @@ class CoinToss():
             return reward, done
 
 
-class EpsilonGreedy():
+class EpsilonGreedyAgent():
 
     def __init__(self, epsilon):
         self.epsilon = epsilon
@@ -86,7 +86,7 @@ if __name__ == "__main__":
         episode_counts = range(1, 50)
         result = {}
         for e in epsilons:
-            agent = EpsilonGreedy(epsilon=e)
+            agent = EpsilonGreedyAgent(epsilon=e)
             means = []
             for c in episode_counts:
                 history = agent.learn(env, episode_count=c)
