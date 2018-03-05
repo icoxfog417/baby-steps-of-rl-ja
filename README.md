@@ -57,6 +57,13 @@ In the examples, following methods are introduced to show the difference of abov
 4. Optimize the policy itself
    * [Actor & Critic](https://github.com/icoxfog417/baby-steps-of-rl/blob/master/EL/notebooks/Actor%26Critic.ipynb)
 
+To evaluate each method, [Frozen Lake](https://gym.openai.com/envs/FrozenLake-v0/) is used.  
+Each cell represents the state, and North, South, East and West in it shows the estimated reward of each action (`Q[s][a]`).
+
+![Frozen Lake](./doc/frozen_lake.png)
+
+(default frozen lake is slippy and it is hard to solve without parameter/reward tuning, so the `is_slippery=False` environment used.)
+
 
 **contents comming soon...**
 
