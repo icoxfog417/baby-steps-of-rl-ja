@@ -4,7 +4,7 @@ from el_agent import ELAgent
 from frozen_lake_util import show_q_value
 
 
-class SARASAAgent(ELAgent):
+class SARSAAgent(ELAgent):
 
     def __init__(self, epsilon=0.1):
         super().__init__(epsilon)
@@ -38,7 +38,7 @@ class SARASAAgent(ELAgent):
 
 
 def train():
-    agent = SARASAAgent()
+    agent = SARSAAgent()
     env = gym.make("FrozenLakeEasy-v0")
     agent.learn(env, episode_count=3000)
     show_q_value(agent.Q)

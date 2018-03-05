@@ -5,6 +5,6 @@ There are 5 programs are available.
 
 * Epsilon & Greedy (multi-armed-bundit)
 * Monte Carlo Control
+* SARSA
 * Q-learning
-* SARASA
 * Actor-Critic

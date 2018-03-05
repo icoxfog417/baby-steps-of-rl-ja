@@ -33,8 +33,9 @@ There are 3 point to utilize the experience.
    * How much experience is "enough" for planning?
 2. How long experience should we learn from?
    * Only one action? or actions until the end of episode?
-3. When do we learn from experience?
-   * Before action? or after action?
+3. Which do experiences update value or policy?
+   * From the value update aspect, future actions are assumed to select under the optimized policy (in short, optimistic).
+   * From the policy update aspect, future actions are selected by its own policy (realistic).
 
 Above problems are linked to representative methods or concept in RL.
 
@@ -49,13 +50,12 @@ In the examples, following methods are introduced to show the difference of abov
 1. How much experience should we accumulate?
    * [Epsilon & Greedy method](https://github.com/icoxfog417/baby-steps-of-rl/blob/master/EL/notebooks/Epsilon%26Greedy.ipynb)
 2. How long experience should we learn from?
-   * From one action (=TD): [Q-learning](https://github.com/icoxfog417/baby-steps-of-rl/blob/master/EL/notebooks/Q-learning.ipynb)
+   * From one action (=TD): [SARSA](https://github.com/icoxfog417/baby-steps-of-rl/blob/master/EL/notebooks/SARSA.ipynb)
    * From episode: [Monte Carlo](https://github.com/icoxfog417/baby-steps-of-rl/blob/master/EL/notebooks/Monte%20Carlo.ipynb)
-3. When do we learn from experience?
-   * Before the action (Off-policy): [Q-learning](https://github.com/icoxfog417/baby-steps-of-rl/blob/master/EL/notebooks/Q-learning.ipynb)
-   * After the action (On-policy): [SARASA](https://github.com/icoxfog417/baby-steps-of-rl/blob/master/EL/notebooks/SARASA.ipynb)
-4. Optimize the policy itself
-   * [Actor & Critic](https://github.com/icoxfog417/baby-steps-of-rl/blob/master/EL/notebooks/Actor%26Critic.ipynb)
+3. Which do experiences update value or policy?
+   * From the value update aspect (Off-policy): [Q-learning](https://github.com/icoxfog417/baby-steps-of-rl/blob/master/EL/notebooks/Q-learning.ipynb)
+   * From the policy update aspect (On-policy): SARSA
+   * Both of them! : [Actor & Critic](https://github.com/icoxfog417/baby-steps-of-rl/blob/master/EL/notebooks/Actor%26Critic.ipynb)
 
 To evaluate each method, [Frozen Lake](https://gym.openai.com/envs/FrozenLake-v0/) is used.  
 Each cell represents the state, and North, South, East and West in it shows the estimated reward of each action (`Q[s][a]`).
