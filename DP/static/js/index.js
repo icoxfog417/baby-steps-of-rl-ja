@@ -5,6 +5,7 @@ var app = new Vue({
     data: {
         row: 3,
         column: 4,
+        moveProb: 0.8,
         grid: [],
         selectedIndex: null,
         simulation: false,
@@ -94,6 +95,7 @@ var app = new Vue({
         plan: function(planType){
             var data = {
                 "plan": planType,
+                "prob": this.moveProb,
                 "grid": this.grid
             }
             var self = this;

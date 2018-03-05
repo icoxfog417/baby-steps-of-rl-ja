@@ -1,5 +1,4 @@
 import os
-import json
 import tornado.web
 import tornado.escape
 from DP.environment import Environment
@@ -17,8 +16,13 @@ class PlanningHandler(tornado.web.RequestHandler):
     def post(self):
         data = tornado.escape.json_decode(self.request.body)
         grid = data["grid"]
+        move_prob = 0.8
+        try:
+            move_prob = float(data["prob"])
+        except ValueError as ex:
+            pass
         plan_type = data["plan"]
-        env = Environment(grid)
+        env = Environment(grid, move_prob=move_prob)
         if plan_type == "value":
             planner = ValuteIterationPlanner(env)
         elif plan_type == "policy":

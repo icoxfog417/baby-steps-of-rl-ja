@@ -65,28 +65,36 @@
                     <button class="button is-danger" @click="setDanger">Danger</button>
                     <button class="button is-dark" @click="setBlock">Block</button>
                 <br/>
+                <h4 class="title is-4">Move Prob</h4>
+                <div class="control">
+                    <input class="input" type="number" step="0.1" placeholder="move probability" v-model="moveProb">
+                </div>
                 <hr/>
                 <h4 class="title is-4" style="color: mediumseagreen">Simulation</h4>
                 <button class="button is-primary is-outlined" @click="plan('value')">Value Iteration</button>
                 <button class="button is-primary is-outlined" @click="plan('policy')">Policy Iteration</button>
-                <br/><br/>
-                <div class="field has-addons" v-if="hasLog">
-                    <p class="control">
-                      <a class="button" @click="play">
-                        <span class="icon is-small">
-                          <i class="fa fa-play"></i>
-                        </span>
-                        <span>Play</span>
-                      </a>
-                    </p>
-                    <p class="control">
-                      <a class="button" @click="stop">
-                        <span class="icon is-small">
-                          <i class="fa fa-stop"></i>
-                        </span>
-                        <span>End</span>
-                      </a>
-                    </p>
+                <hr/>
+                <div v-if="hasLog">
+                    <h4 class="title is-4" style="color: mediumseagreen">Result</h4>
+                    <div >[[log.length]] iterations have done to converge.</div>
+                    <div class="field has-addons">
+                        <p class="control">
+                        <a class="button" @click="play">
+                            <span class="icon is-small">
+                            <i class="fa fa-play"></i>
+                            </span>
+                            <span>Play</span>
+                        </a>
+                        </p>
+                        <p class="control">
+                        <a class="button" @click="stop">
+                            <span class="icon is-small">
+                            <i class="fa fa-stop"></i>
+                            </span>
+                            <span>End</span>
+                        </a>
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
