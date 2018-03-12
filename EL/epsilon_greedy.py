@@ -50,30 +50,26 @@ class EpsilonGreedyAgent():
         else:
             return np.argmax(self.V)
 
-    def learn(self, env, episode_count=50):
+    def play(self, env):
         # Initialize estimation
         N = [0] * len(env)
         self.V = [0] * len(env)
 
-        history = []
-        for e in range(episode_count):
-            env.reset()
-            done = False
-            rewards = []
-            while not done:
-                selected_coin = self.policy()
-                reward, done = env.step(selected_coin)
-                rewards.append(reward)
+        env.reset()
+        done = False
+        rewards = []
+        while not done:
+            selected_coin = self.policy()
+            reward, done = env.step(selected_coin)
+            rewards.append(reward)
 
-                n = N[selected_coin]
-                coin_average = self.V[selected_coin]
-                new_average = (coin_average * n + reward) / (n + 1)
-                N[selected_coin] += 1
-                self.V[selected_coin] = new_average
-            else:
-                history.append(np.mean(rewards))
+            n = N[selected_coin]
+            coin_average = self.V[selected_coin]
+            new_average = (coin_average * n + reward) / (n + 1)
+            N[selected_coin] += 1
+            self.V[selected_coin] = new_average
 
-        return history
+        return rewards
 
 
 if __name__ == "__main__":
@@ -83,16 +79,19 @@ if __name__ == "__main__":
     def main():
         env = CoinToss([0.1, 0.5, 0.1, 0.9, 0.1])
         epsilons = [0.0, 0.1, 0.2, 0.5, 0.8]
-        episode_counts = range(1, 50)
+        game_steps = list(range(10, 310, 10))
         result = {}
         for e in epsilons:
             agent = EpsilonGreedyAgent(epsilon=e)
             means = []
-            for c in episode_counts:
-                history = agent.learn(env, episode_count=c)
-                means.append(np.mean(history))
+            for s in game_steps:
+                env.max_episode_steps = s
+                rewards = agent.play(env)
+                means.append(np.mean(rewards))
             result["epsilon={}".format(e)] = means
+        result["coin toss count"] = game_steps
         result = pd.DataFrame(result)
+        result.set_index("coin toss count", drop=True, inplace=True)
         result.plot.line(figsize=(10, 5))
         plt.show()
 
