@@ -20,35 +20,30 @@ class MonteCarloAgent(ELAgent):
         for e in range(episode_count):
             s = env.reset()
             done = False
-            # Gain experience
+            # Play until the end of episode
             experience = []
             while not done:
                 if render:
                     env.render()
                 a = self.policy(s, actions)
                 n_state, reward, done, info = env.step(a)
-                experience.append(
-                    {"state": s, "action": a, "reward": reward}
-                )
+                experience.append({"state": s, "action": a, "reward": reward})
                 s = n_state
             else:
                 self.log(reward)
 
+            # Evaluate each state, action
             for i, x in enumerate(experience):
-                s = x["state"]
-                a = x["action"]
+                s, a = x["state"], x["action"]
 
-                # Calculate discounted future reward
-                G = 0
-                t = 0
+                # Calculate discounted future reward of s
+                G, t = 0, 0
                 for j in range(i, len(experience)):
                     G += math.pow(gamma, t) * experience[j]["reward"]
                     t += 1
 
-                # Count visits
-                N[s][a] += 1
+                N[s][a] += 1  # count s, a pair
                 alpha = 1 / N[s][a]
-                # Update
                 self.Q[s][a] += alpha * (G - self.Q[s][a])
 
             if e != 0 and e % report_interval == 0:

@@ -17,13 +17,11 @@ class CoinToss():
 
     def step(self, action):
         final = self.max_episode_steps - 1
-        if self.toss_count < final:
-            done = False
-        elif self.toss_count == final:
-            done = True
-        else:
+        if self.toss_count > final:
             raise Exception("The step count exceeded maximum. \
                             Please reset env.")
+        else:
+            done = True if self.toss_count == final else False
 
         if action >= len(self.head_probs):
             raise Exception("The No.{} coin doesn't exist.".format(action))

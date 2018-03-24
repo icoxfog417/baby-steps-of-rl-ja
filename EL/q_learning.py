@@ -10,8 +10,7 @@ class QLearningAgent(ELAgent):
         super().__init__(epsilon)
 
     def learn(self, env, episode_count=100000, gamma=0.9,
-              learning_rate=0.1,
-              render=False, report_interval=100):
+              learning_rate=0.1, render=False, report_interval=100):
         self.init_log()
         self.Q = defaultdict(lambda: [0] * len(actions))
         actions = list(range(env.action_space.n))

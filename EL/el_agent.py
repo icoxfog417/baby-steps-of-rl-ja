@@ -21,6 +21,9 @@ class ELAgent():
     def init_log(self):
         self.reward_log = []
 
+    def log(self, reward):
+        self.reward_log.append(reward)
+
     def show_reward_log(self, interval=100, episode=-1):
         if episode > 0:
             rewards = self.reward_log[-interval:]
@@ -47,23 +50,3 @@ class ELAgent():
                      label="Rewards for each {} episode".format(interval))
             plt.legend(loc="best")
             plt.show()
-
-    def log(self, reward):
-        self.reward_log.append(reward)
-
-    def play(self, env, episode_count=3, render=False):
-        actions = list(range(env.action_space.n))
-        for e in range(episode_count):
-            s = env.reset()
-            acquired = 0
-
-            while True:
-                if render:
-                    env.render()
-                a = self.policy(s, actions)
-                n_state, reward, done, info = env.step(a)
-                acquired += reward
-                if done:
-                    break
-
-            print("Episode {}: get reward {}.".format(e, acquired))
