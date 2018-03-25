@@ -36,8 +36,7 @@ class ActorCritic():
         self.critic_class = critic_class
 
     def train(self, env, episode_count=100000, gamma=0.9,
-              learning_rate=0.1,
-              render=False, report_interval=100):
+              learning_rate=0.1, render=False, report_interval=100):
         actor = self.actor_class(env)
         critic = self.critic_class(env)
 
