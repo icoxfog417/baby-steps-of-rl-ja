@@ -27,13 +27,14 @@ So we have to think the strategy that beginning with action then modifies the pl
 
 There are 3 point to utilize the experience.
 
-1. How much experience should we accumulate?
+1. The balance between gaining experience and use it to get reward.
    * We don't know the detail of environment.
    * Therefore there are probabilities that more good reward is in states that are not discovered.
-   * How much experience is "enough" for planning?
-2. How long experience should we learn from?
-   * Only one action? or actions until the end of episode?
-3. Which do experiences update value or policy?
+   * How to allocate the limited time to experience or its application?
+2. The balance between the speed and accuracy for modifying the plan.
+   * If we want to fix the plan as soon as possible, we have to estimate the future reward.
+   * On the contrary, we can confirm the final reward if we wait until the end of the game, but the fixing is slow.
+3. Which one should the experience updates a value or a policy?
    * From the value update aspect, future actions are assumed to select under the optimized policy (in short, optimistic).
    * From the policy update aspect, future actions are selected by its own policy (realistic).
 
@@ -43,32 +44,36 @@ Above problems are linked to representative methods or concept in RL.
 2. TD learning or Monte Carlo
 3. Off policy or On policy
 
-And of corse thre is the aspect of "value or policy".
-
 In the examples, following methods are introduced to show the difference of above points.
 
-1. How much experience should we accumulate?
+1. The balance between gaining experience and use it to get reward.
    * [Epsilon & Greedy method](https://github.com/icoxfog417/baby-steps-of-rl/blob/master/EL/notebooks/Epsilon%26Greedy.ipynb)
-2. How long experience should we learn from?
-   * From one action (=TD): [SARSA](https://github.com/icoxfog417/baby-steps-of-rl/blob/master/EL/notebooks/SARSA.ipynb)
-   * From episode: [Monte Carlo](https://github.com/icoxfog417/baby-steps-of-rl/blob/master/EL/notebooks/Monte%20Carlo.ipynb)
-3. Which do experiences update value or policy?
+2. The balance between the speed and accuracy for modifying the plan.
+   * As soon as possible (fix after one action) (=TD): [Q-learning](https://github.com/icoxfog417/baby-steps-of-rl/blob/master/EL/notebooks/Q-learning.ipynb)
+   * The end of episode: [Monte Carlo](https://github.com/icoxfog417/baby-steps-of-rl/blob/master/EL/notebooks/Monte%20Carlo.ipynb)
+3. Which one should the experience updates a value or a policy?
    * From the value update aspect (Off-policy): [Q-learning](https://github.com/icoxfog417/baby-steps-of-rl/blob/master/EL/notebooks/Q-learning.ipynb)
-   * From the policy update aspect (On-policy): SARSA
+   * From the policy update aspect (On-policy): [SARSA](https://github.com/icoxfog417/baby-steps-of-rl/blob/master/EL/notebooks/SARSA.ipynb)
    * Both of them! : [Actor & Critic](https://github.com/icoxfog417/baby-steps-of-rl/blob/master/EL/notebooks/Actor%26Critic.ipynb)
 
-To evaluate each method, [Frozen Lake](https://gym.openai.com/envs/FrozenLake-v0/) is used.  
+To evaluate each method, [Frozen Lake](https://gym.openai.com/envs/FrozenLake-v0/) is used (`is_slippery=False` version).  
 Each cell represents the state, and North, South, East and West in it shows the estimated reward of each action (`Q[s][a]`).
 
 ![Frozen Lake](./doc/frozen_lake.png)
 
-(default frozen lake is slippy and it is hard to solve without parameter/reward tuning, so the `is_slippery=False` environment used.)
+## Represents the Plan as Function
+
+So far we represent the plan by a table. Specifically, the estimated reward of taking the action `a` on a state `s` is Q[s][a]. But as increasing the states and actions, the method takes the high cost.  
+
+So far we represent the plan by a table. Specifically, the estimated reward of taking the action `a` on a state `s` is Q[s][a]. But as increasing the states and actions, the method takes the high cost.  
+
+So we have to think the way to calculate the value for `s`, `a` without fully recording these. One solution is using a function to represent the relationship between a state and evaluations of each action. And the neural network is one of the most popular "function" to do this recently. 
 
 
 **contents comming soon...**
 
 Another topics will come
 
-* Reinforcement Learning meets Deep Learning
-* How to solve the game with Deep RL
-* Try & Understand recent Deep RL algorithm
+* The week points of (Deep) Reinforcement Learning
+* How to overcome week points.
+* The adoptation of Reinforcement Learning
