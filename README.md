@@ -65,8 +65,6 @@ Each cell represents the state, and North, South, East and West in it shows the 
 
 So far we represent the plan by a table. Specifically, the estimated reward of taking the action `a` on a state `s` is Q[s][a]. But as increasing the states and actions, the method takes the high cost.  
 
-So far we represent the plan by a table. Specifically, the estimated reward of taking the action `a` on a state `s` is Q[s][a]. But as increasing the states and actions, the method takes the high cost.  
-
 So we have to think the way to calculate the value for `s`, `a` without fully recording these. One solution is using a function to represent the relationship between a state and evaluations of each action. And the neural network is one of the most popular "function" to do this recently. 
 
 
@@ -76,4 +74,4 @@ Another topics will come
 
 * The week points of (Deep) Reinforcement Learning
 * How to overcome week points.
-* The adoptation of Reinforcement Learning
+* The adoptation of RL
