@@ -5,14 +5,19 @@ import matplotlib.pyplot as plt
 
 
 Experience = namedtuple("Experience",
-                        ["s", "a", "r", "s_n", "d"])
+                        ["s", "a", "r", "n_s", "d"])
+
+ExperienceWithAction = namedtuple("ExperienceWithAction",
+                                  ["s", "a", "r", "n_s", "d", "n_a"])
 
 
 class FNAgent():
 
-    def __init__(self, epsilon, estimator=None):
+    def __init__(self, epsilon, estimator=None,
+                 under_policy=False):
         self.epsilon = epsilon
         self.estimator = estimator
+        self.under_policy = under_policy
         self.buffer_size = 0
         self.batch_size = 0
         self.experience = []
@@ -30,10 +35,18 @@ class FNAgent():
             return np.random.randint(len(actions))
         else:
             estimates = self.estimator.estimate(s)
-            return np.argmax(estimates)
+            if self.under_policy:
+                action = np.random.choice(actions, size=1, p=estimates)[0]
+                return action
+            else:
+                return np.argmax(estimates)
 
-    def feedback(self, s, a, r, s_n, d):
-        e = Experience(s, a, r, s_n, d)
+    def feedback(self, s, a, r, n_s, d, n_a=None):
+        if not self.under_policy:
+            e = Experience(s, a, r, n_s, d)
+        else:
+            e = ExperienceWithAction(s, a, r, n_s, d, n_a)
+
         self.experience.append(e)
         if self.estimator.initialized:
             self.experience.pop(0)  # Delete old experience
@@ -41,12 +54,12 @@ class FNAgent():
             self.estimator.update(batch)
         else:
             if len(self.experience) == self.buffer_size:
-                self.estimator.initialize(self.experience, self.batch_size)
+                self.estimator.initialize(self.experience)
 
     def log(self, reward):
         self.reward_log.append(reward)
 
-    def show_reward_log(self, interval=100, episode=-1):
+    def show_reward_log(self, interval=10, episode=-1):
         if episode > 0:
             rewards = self.reward_log[-interval:]
             mean = np.round(np.mean(rewards), 3)

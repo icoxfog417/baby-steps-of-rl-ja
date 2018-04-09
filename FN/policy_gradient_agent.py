@@ -7,7 +7,7 @@ from estimator import Estimator
 from fn_agent import FNAgent
 
 
-class ValueFunction(Estimator):
+class PolicyEstimator(Estimator):
 
     def __init__(self, actions, gamma):
         super().__init__(actions)
@@ -29,10 +29,18 @@ class ValueFunction(Estimator):
         self.initialized = True
         print("Done initialize. From now, begin training!")
 
+    def softmax(self, x):
+        return np.exp(x) / np.sum(np.exp(x), axis=0)
+
     def estimate(self, s):
+        evaluation = self.evaluate(s)
+        action_probs = self.softmax(evaluation)
+        return action_probs
+
+    def evaluate(self, s):
         feature = self.to_feature(s)
-        estimated = self.model.predict(feature)[0]
-        return estimated
+        evaluation = self.model.predict(feature)[0]
+        return evaluation
 
     def to_feature(self, s):
         # CartPole state is ...
@@ -42,47 +50,47 @@ class ValueFunction(Estimator):
 
     def update(self, experiences):
         states = None
-        estimateds = None
+        evaluateds = None
 
         for e in experiences:
-            s, es = self._make_label_data(e)
+            s, ev = self._make_label_data(e)
             if states is None:
                 states = s
-                estimateds = es
+                evaluateds = ev
             else:
                 states = np.vstack((states, s))
-                estimateds = np.vstack((estimateds, es))
+                evaluateds = np.vstack((evaluateds, ev))
 
         states = self.model.named_steps["scaler"].transform(states)
-        self.model.named_steps["estimator"].partial_fit(states, estimateds)
+        self.model.named_steps["estimator"].partial_fit(states, evaluateds)
 
     def _make_label_data(self, e):
         # Calculate Reward
         reward = e.r
         if not e.d:
             if self.initialized:
-                future = self.estimate(e.n_s)
+                future = self.evaluate(e.n_s)
             else:
                 future = np.random.uniform(size=len(self.actions))
-            reward = e.r + self.gamma * np.max(future)
+            reward = e.r + self.gamma * future[e.n_a]
 
         # Correct model estimation by gained reward
         if self.initialized:
-            estimated = self.estimate(e.s)
+            evaluation = self.evaluate(e.s)
         else:
-            estimated = np.random.uniform(size=len(self.actions))
+            evaluation = np.random.uniform(size=len(self.actions))
 
-        estimated[e.a] = reward
+        evaluation[e.a] = reward
 
         # Update Model
         state = self.to_feature(e.s)
-        return state, estimated
+        return state, evaluation
 
 
-class ValueFunctionAgent(FNAgent):
+class PolicyGradientAgent(FNAgent):
 
     def __init__(self, epsilon=0.1):
-        super().__init__(epsilon)
+        super().__init__(epsilon, under_policy=True)
 
     def learn(self, env, episode_count=200, gamma=0.9,
               buffer_size=1024, batch_size=32,
@@ -90,20 +98,22 @@ class ValueFunctionAgent(FNAgent):
         actions = list(range(env.action_space.n))
         self.buffer_size = buffer_size
         self.batch_size = batch_size
-        self.estimator = ValueFunction(actions, gamma)
+        self.estimator = PolicyEstimator(actions, gamma)
 
         for e in range(episode_count):
             s = env.reset()
             done = False
             episode_reward = 0
+            a = self.policy(s)
             while not done:
                 if render:
                     env.render()
-                a = self.policy(s)
                 n_state, reward, done, info = env.step(a)
                 episode_reward += reward
-                self.feedback(s, a, reward, n_state, done)
+                n_action = self.policy(n_state)
+                self.feedback(s, a, reward, n_state, done, n_action)
                 s = n_state
+                a = n_action
             else:
                 self.log(episode_reward)
 
@@ -112,7 +122,7 @@ class ValueFunctionAgent(FNAgent):
 
 
 def train():
-    agent = ValueFunctionAgent()
+    agent = PolicyGradientAgent()
     env = gym.make("CartPole-v1")
     agent.learn(env, render=False)
     agent.show_reward_log()
