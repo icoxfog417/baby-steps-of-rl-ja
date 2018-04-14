@@ -7,9 +7,6 @@ import matplotlib.pyplot as plt
 Experience = namedtuple("Experience",
                         ["s", "a", "r", "n_s", "d"])
 
-ExperienceWithAction = namedtuple("ExperienceWithAction",
-                                  ["s", "a", "r", "n_s", "d", "n_a"])
-
 
 class FNAgent():
 
@@ -41,12 +38,8 @@ class FNAgent():
             else:
                 return np.argmax(estimates)
 
-    def feedback(self, s, a, r, n_s, d, n_a=None):
-        if not self.under_policy:
-            e = Experience(s, a, r, n_s, d)
-        else:
-            e = ExperienceWithAction(s, a, r, n_s, d, n_a)
-
+    def feedback(self, s, a, r, n_s, d):
+        e = Experience(s, a, r, n_s, d)
         self.experience.append(e)
         if self.estimator.initialized:
             self.experience.pop(0)  # Delete old experience

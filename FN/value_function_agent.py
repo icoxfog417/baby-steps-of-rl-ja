@@ -41,18 +41,16 @@ class ValueFunction(Estimator):
         return feature
 
     def update(self, experiences):
-        states = None
-        estimateds = None
+        states = []
+        estimateds = []
 
         for e in experiences:
             s, es = self._make_label_data(e)
-            if states is None:
-                states = s
-                estimateds = es
-            else:
-                states = np.vstack((states, s))
-                estimateds = np.vstack((estimateds, es))
+            states.append(s)
+            estimateds.append(es)
 
+        states = np.vstack(states)
+        estimateds = np.array(estimateds)
         states = self.model.named_steps["scaler"].transform(states)
         self.model.named_steps["estimator"].partial_fit(states, estimateds)
 
