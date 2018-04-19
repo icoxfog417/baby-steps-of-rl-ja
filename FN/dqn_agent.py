@@ -1,19 +1,95 @@
+import os
 import numpy as np
-import tensorflow as tf
 from tensorflow.python import keras as K
+from tensorflow.python.keras._impl.keras.models import clone_model
 from PIL import Image
 import gym
+import gym_ple
 from estimator import Estimator
 from fn_agent import FNAgent
 
 
-class Preprocessor():
+class DeepQNetwork(Estimator):
 
-    def __init__(self, width, height, frame_count):
+    def __init__(self, actions, gamma):
+        super().__init__(actions)
+        self.gamma = gamma
+        self._teacher_model = None
+        self.reset()
+
+    def initialize(self, experiences):
+        feature_shape = experiences[0].s.shape
+        self.set_estimator(feature_shape)
+        self.initialized = True
+        print("Done initialize. From now, begin training!")
+
+    def set_estimator(self, feature_shape):
+        model = K.Sequential()
+        model.add(K.layers.Conv2D(
+            32, kernel_size=8, strides=4, padding="same",
+            input_shape=feature_shape, kernel_initializer="normal",
+            activation="relu"))
+        model.add(K.layers.Conv2D(
+            64, kernel_size=4, strides=2, padding="same",
+            kernel_initializer="normal",
+            activation="relu"))
+        model.add(K.layers.Conv2D(
+            64, kernel_size=3, strides=1, padding="same",
+            kernel_initializer="normal",
+            activation="relu"))
+        """
+        model.add(K.layers.GlobalAveragePooling2D())
+        """
+        model.add(K.layers.Flatten())
+        model.add(K.layers.Dense(512, kernel_initializer="normal",
+                                 activation="relu"))
+        model.add(K.layers.Dense(len(self.actions),
+                                 kernel_initializer="normal"))
+        self.model = model
+        self._teacher_model = clone_model(self.model)
+
+    def estimate(self, state):
+        return self.model.predict(np.array([state]))[0]
+
+    def update(self, experiences):
+        states = np.array([e.s for e in experiences])
+        estimateds = self.model.predict(states)
+
+        next_states = np.array([e.n_s for e in experiences])
+        future_estimates = self._teacher_model.predict(next_states)
+
+        for i, e in enumerate(experiences):
+            reward = e.r
+            if not e.d:
+                reward += self.gamma * np.max(future_estimates[i])
+            estimateds[i][e.a] = reward
+
+        self.model.train_on_batch(states, estimateds)
+
+    def update_teacher(self):
+        self._teacher_model = clone_model(self.model)
+
+
+class Observer():
+
+    def __init__(self, env, width, height, frame_count):
+        self._env = env
         self.width = width
         self.height = height
         self.frame_count = frame_count
         self._frames = []
+
+    def reset(self):
+        return self.transform(self._env.reset())
+
+    def render(self):
+        self._env.render()
+
+    def step(self, action, skip=0):
+        for i in range(skip + 1):
+            n_state, reward, done, info = self._env.step(action)
+            n_state = self.transform(n_state)
+        return n_state, reward, done, info
 
     def transform(self, state):
         grayed = Image.fromarray(state).convert("L")
@@ -32,122 +108,65 @@ class Preprocessor():
         return feature
 
 
-class DeepQNetwork(Estimator):
+class DeepQNetworkAgent(FNAgent):
 
-    def __init__(self, actions, gamma):
-        super().__init__(actions)
-        self.gamma = gamma
-        self._fixed_model = None
-        self.reset()
-
-    def initialize(self, experiences):
-        features = np.vstack([self.to_feature(e.s) for e in experiences])
-
-        feature_shape = features[1].shape
-        self.set_estimator(feature_shape)
-        self.set_trainer()
-        self.initialized = True
-        print("Done initialize. From now, begin training!")
-
-    def set_estimator(self, feature_shape):
-        model = K.Sequential()
-        model.add(K.layers.Conv2D(
-            32, kernel_size=8, strides=4, padding="same",
-            input_shape=feature_shape, kernel_initializer="normal",
-            activation="relu"))
-        model.add(K.layers.Conv2D(
-            64, kernel_size=4, strides=2, padding="same",
-            kernel_initializer="normal",
-            activation="relu"))
-        model.add(K.layers.Conv2D(
-            64, kernel_size=3, strides=1, padding="same",
-            kernel_initializer="normal",
-            activation="relu"))
-        model.add(K.layers.Flatten())
-        model.add(K.layers.Dense(512, kernel_initializer="normal",
-                                 activation="relu"))
-        model.add(K.layers.Dense(len(self.actions),
-                                 kernel_initializer="normal"))
-        self.model = model
-
-    def estimate(self, s, from_fixed=False):
-        model = self.model if not from_fixed else self._fixed_model
-        feature = self.to_feature(s)
-        estimated = model.predict(feature)[0]
-        return estimated
-
-    def update(self, experiences):
-        states = []
-        estimateds = []
-
-        for e in experiences:
-            s, es = self._make_label_data(e)
-            states.append(s)
-            estimateds.append(es)
-
-        states = np.vstack(states)
-        estimateds = np.array(estimateds)
-        states = self.model.named_steps["scaler"].transform(states)
-        self.model.named_steps["estimator"].partial_fit(states, estimateds)
-
-    def _make_label_data(self, e):
-        # Calculate Reward
-        reward = e.r
-        if not e.d:
-            if self.initialized:
-                future = self.estimate(e.n_s)
-            else:
-                future = np.random.uniform(size=len(self.actions))
-            reward = e.r + self.gamma * np.max(future)
-
-        # Correct model estimation by gained reward
-        if self.initialized:
-            estimated = self.estimate(e.s)
-        else:
-            estimated = np.random.uniform(size=len(self.actions))
-
-        estimated[e.a] = reward
-
-        # Update Model
-        state = self.to_feature(e.s)
-        return state, estimated
-
-
-class ValueFunctionAgent(FNAgent):
-
-    def __init__(self, epsilon=0.1):
+    def __init__(self, epsilon=0.0001, model_path=""):
         super().__init__(epsilon)
+        self.model_path = model_path
+        if not model_path:
+            path = os.path.join(os.path.dirname(__file__), "logs")
+            if not os.path.exists(path):
+                os.mkdir(path)
+            self.model_path = os.path.join(path, "dqn_model.h5")
 
-    def learn(self, env, episode_count=200, gamma=0.9,
-              buffer_size=1024, batch_size=32,
+    def learn(self, env, episode_count=800, gamma=0.99, epsilon_decay=0.995,
+              buffer_size=65536, batch_size=32, teacher_update_freq=10,
               render=False, report_interval=10):
         actions = list(range(env.action_space.n))
+        obs = Observer(env, 80, 80, 4)
         self.buffer_size = buffer_size
         self.batch_size = batch_size
-        self.estimator = ValueFunction(actions, gamma)
+        self.estimator = DeepQNetwork(actions, gamma)
+        final_epsilon = self.epsilon
+        self.epsilon = 1.0
+        training_step = -1
 
         for e in range(episode_count):
-            s = env.reset()
+            s = obs.reset()
             done = False
             episode_reward = 0
+            skip = 0 if training_step < 0 else 4
             while not done:
                 if render:
-                    env.render()
+                    obs.render()
                 a = self.policy(s)
-                n_state, reward, done, info = env.step(a)
+                n_state, reward, done, info = obs.step(a, skip=skip)
                 episode_reward += reward
-                self.feedback(s, a, reward, n_state, done)
+                switched = self.feedback(s, a, reward, n_state, done)
+                if switched:
+                    adam = K.optimizers.Adam(lr=1e-6, clipvalue=1.0)
+                    self.estimator.model.compile(optimizer=adam, loss="mse")
+                    training_step = 0
+
                 s = n_state
             else:
                 self.log(episode_reward)
+
+            if training_step >= 0:
+                self.epsilon = max(self.epsilon * epsilon_decay, final_epsilon)
+                if training_step % teacher_update_freq == 0:
+                    self.estimator.update_teacher()
+                if training_step % report_interval == 0:
+                    self.estimator.model.save(self.model_path, overwrite=True)
+                training_step += 1
 
             if e != 0 and e % report_interval == 0:
                 self.show_reward_log(interval=report_interval, episode=e)
 
 
 def train():
-    agent = ValueFunctionAgent()
-    env = gym.make("CartPole-v1")
+    agent = DeepQNetworkAgent()
+    env = gym.make("Catcher-v0")
     agent.learn(env, render=False)
     agent.show_reward_log()
 

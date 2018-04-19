@@ -41,6 +41,7 @@ class FNAgent():
     def feedback(self, s, a, r, n_s, d):
         e = Experience(s, a, r, n_s, d)
         self.experience.append(e)
+        switched = False
         if self.estimator.initialized:
             self.experience.pop(0)  # Delete old experience
             batch = random.sample(self.experience, self.batch_size)
@@ -48,6 +49,8 @@ class FNAgent():
         else:
             if len(self.experience) == self.buffer_size:
                 self.estimator.initialize(self.experience)
+                switched = True
+        return switched
 
     def log(self, reward):
         self.reward_log.append(reward)
