@@ -37,9 +37,6 @@ class DeepQNetwork(Estimator):
             64, kernel_size=3, strides=1, padding="same",
             kernel_initializer="normal",
             activation="relu"))
-        """
-        model.add(K.layers.GlobalAveragePooling2D())
-        """
         model.add(K.layers.Flatten())
         model.add(K.layers.Dense(512, kernel_initializer="normal",
                                  activation="relu"))
