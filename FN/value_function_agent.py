@@ -1,18 +1,26 @@
+import random
+import argparse
 import numpy as np
 from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
+from sklearn.externals import joblib
 import gym
-from estimator import Estimator
-from fn_agent import FNAgent
+from fn_framework import FNAgent, Trainer
 
 
-class ValueFunction(Estimator):
+class ValueFunctionAgent(FNAgent):
 
-    def __init__(self, actions, gamma):
-        super().__init__(actions)
-        self.gamma = gamma
-        self.reset()
+    @classmethod
+    def load(cls, env, model_path, epsilon=0.0001):
+        actions = list(range(env.action_space.n))
+        agent = cls(epsilon, actions)
+        agent.model = joblib.load(model_path)
+        agent.initialized = True
+        return agent
+
+    def save(self, model_path):
+        joblib.dump(self.model, model_path)
 
     def initialize(self, experiences):
         scaler = StandardScaler()
@@ -25,7 +33,7 @@ class ValueFunction(Estimator):
         self.model.named_steps["scaler"].fit(features)
 
         # Avoid the predict before fit. Use a little sample to fit.
-        self.update(experiences[:2])
+        self.update(experiences[:2], gamma=0)
         self.initialized = True
         print("Done initialize. From now, begin training!")
 
@@ -40,81 +48,88 @@ class ValueFunction(Estimator):
         feature = np.array(s).reshape((1, -1))
         return feature
 
-    def update(self, experiences):
-        states = []
-        estimateds = []
+    def _predict(self, states):
+        if self.initialized:
+            predicteds = self.model.predict(states)
+        else:
+            size = len(self.actions) * len(states)
+            predicteds = np.random.uniform(size=size)
+            predicteds = predicteds.reshape((-1, len(self.actions)))
+        return predicteds
 
-        for e in experiences:
-            s, es = self._make_label_data(e)
-            states.append(s)
-            estimateds.append(es)
+    def update(self, experiences, gamma):
+        states = np.vstack([self.to_feature(e.s) for e in experiences])
+        n_states = np.vstack([self.to_feature(e.n_s) for e in experiences])
 
-        states = np.vstack(states)
+        estimateds = self._predict(states)
+        future = self._predict(n_states)
+
+        for i, e in enumerate(experiences):
+            reward = e.r
+            if not e.d:
+                reward += gamma * np.max(future[i])
+            estimateds[i][e.a] = reward
+
         estimateds = np.array(estimateds)
         states = self.model.named_steps["scaler"].transform(states)
         self.model.named_steps["estimator"].partial_fit(states, estimateds)
 
-    def _make_label_data(self, e):
-        # Calculate Reward
-        reward = e.r
-        if not e.d:
-            if self.initialized:
-                future = self.estimate(e.n_s)
-            else:
-                future = np.random.uniform(size=len(self.actions))
-            reward = e.r + self.gamma * np.max(future)
 
-        # Correct model estimation by gained reward
-        if self.initialized:
-            estimated = self.estimate(e.s)
-        else:
-            estimated = np.random.uniform(size=len(self.actions))
+class ValueFunctionTrainer(Trainer):
 
-        estimated[e.a] = reward
+    def __init__(self, log_dir=""):
+        super().__init__(log_dir)
 
-        # Update Model
-        state = self.to_feature(e.s)
-        return state, estimated
-
-
-class ValueFunctionAgent(FNAgent):
-
-    def __init__(self, epsilon=0.1):
-        super().__init__(epsilon)
-
-    def learn(self, env, episode_count=200, gamma=0.9,
+    def train(self, env, episode_count=220, gamma=0.9, epsilon=0.1,
               buffer_size=1024, batch_size=32,
               render=False, report_interval=10):
         actions = list(range(env.action_space.n))
         self.buffer_size = buffer_size
         self.batch_size = batch_size
-        self.estimator = ValueFunction(actions, gamma)
+        self.gamma = gamma
+        self.report_interval = report_interval
+        agent = ValueFunctionAgent(epsilon, actions)
 
-        for e in range(episode_count):
-            s = env.reset()
-            done = False
-            episode_reward = 0
-            while not done:
-                if render:
-                    env.render()
-                a = self.policy(s)
-                n_state, reward, done, info = env.step(a)
-                episode_reward += reward
-                self.feedback(s, a, reward, n_state, done)
-                s = n_state
-            else:
-                self.log(episode_reward)
+        self.train_loop(env, agent, episode_count, render)
+        return agent
 
-            if e != 0 and e % report_interval == 0:
-                self.show_reward_log(interval=report_interval, episode=e)
+    def buffer_full(self, agent):
+        agent.initialize(self.experiences)
+
+    def step(self, episode_count, step_count, experience, agent):
+        if agent.initialized:
+            batch = random.sample(self.experiences, self.batch_size)
+            agent.update(batch, self.gamma)
+
+    def episode_end(self, episode_count, step_count, agent):
+        reward_in_episode = ([e.r for e in self.experiences[-step_count:]])
+        self.reward_log.append(sum(reward_in_episode))
+
+        if self.is_event(episode_count, self.report_interval):
+            recent_rewards = self.reward_log[-self.report_interval:]
+            desc = self.make_desc("reward", recent_rewards)
+            print("At episode {}, {}".format(episode_count, desc))
 
 
-def train():
-    agent = ValueFunctionAgent()
+def main(play):
     env = gym.make("CartPole-v1")
-    agent.learn(env, render=False)
-    agent.show_reward_log()
+    trainer = ValueFunctionTrainer()
+    path = trainer.make_path("value_function_agent.pkl")
+
+    if play:
+        agent = ValueFunctionAgent.load(env, path)
+        agent.play(env)
+    else:
+        trained = trainer.train(env)
+        trainer.plot_logs("Rewards", trainer.reward_log,
+                          trainer.report_interval)
+        trained.save(path)
 
 
 if __name__ == "__main__":
-    train()
+    parser = argparse.ArgumentParser(description="VF Agent")
+    parser.add_argument("--play", action="store_true",
+                        help="play with trained model")
+
+    args = parser.parse_args()
+    main(args.play)

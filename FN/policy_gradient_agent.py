@@ -1,66 +1,68 @@
+import os
+import argparse
+import random
 import numpy as np
 from sklearn.preprocessing import StandardScaler
+from sklearn.externals import joblib
 import tensorflow as tf
 from tensorflow.python import keras as K
 import gym
-from estimator import Estimator
-from fn_agent import FNAgent
+from fn_framework import FNAgent, Trainer, Experience
 
 
-class PolicyEstimator(Estimator):
+class PolicyGradientAgent(FNAgent):
 
-    def __init__(self, actions, gamma):
-        super().__init__(actions)
-        self.gamma = gamma
-        self.reset()
+    def __init__(self, epsilon, actions):
+        super().__init__(epsilon, actions)
+        self.estimate_probs = True
         self.scaler = None
-        self.reward_scaler = None
-        self._trainer = None
+        self._updater = None
 
-    def initialize(self, experiences):
+    @classmethod
+    def load(cls, env, model_path, epsilon=0.0001):
+        agent = super().load(env, model_path, epsilon)
+        agent.scaler = joblib.load(agent.scaler_path(model_path))
+        return agent
+
+    def save(self, model_path):
+        super().save(model_path)
+        joblib.dump(self.scaler, self.scaler_path(model_path))
+
+    def scaler_path(self, model_path):
+        fname, _ = os.path.splitext(model_path)
+        fname += "_scaler.pkl"
+        return fname
+
+    def initialize(self, experiences, optimizer):
         self.scaler = StandardScaler()
         features = np.vstack([self.to_feature(e.s) for e in experiences])
         self.scaler.fit(features)
-        self.reward_scaler = StandardScaler()
-        rewards = np.array([[e.r] for e in experiences])
-        self.reward_scaler.fit(rewards)
 
         feature_size = features.shape[1]
-        self.set_estimator(feature_size)
-        self.set_trainer()
+        self.model = K.models.Sequential([
+            K.layers.Dense(10, activation="relu", input_shape=(feature_size,)),
+            K.layers.Dense(10, activation="relu"),
+            K.layers.Dense(len(self.actions), activation="softmax")
+        ])
+        self.set_updater(self.model, optimizer)
         self.initialized = True
         print("Done initialize. From now, begin training!")
 
-    def set_estimator(self, feature_size):
-        features = K.Input(shape=(feature_size,))
-        layer = None
-        for size in [10, 10]:
-            if layer is None:
-                layer = features
-            hidden = K.layers.Dense(size, activation=tf.nn.relu)(layer)
-            layer = hidden
-        outputs = K.layers.Dense(len(self.actions),
-                                 activation=tf.nn.softmax)(layer)
-        model = K.Model(inputs=features, outputs=outputs)
-        self.model = model
-
-    def set_trainer(self):
+    def set_updater(self, model, optimizer):
         actions = tf.placeholder(shape=(None), dtype="int32")
         rewards = tf.placeholder(shape=(None), dtype="float32")
         one_hot_actions = tf.one_hot(actions, len(self.actions), axis=1)
-        action_probs = self.model.output
+        action_probs = model.output
         selected_action_probs = tf.reduce_sum(one_hot_actions * action_probs,
                                               axis=1)
         clipped = tf.clip_by_value(selected_action_probs, 1e-10, 1.0)
         loss = - tf.log(clipped) * rewards
         loss = tf.reduce_mean(loss)
 
-        optimizer = K.optimizers.Adam()
         updates = optimizer.get_updates(loss=loss,
-                                        params=self.model.trainable_weights)
-
-        self._trainer = K.backend.function(
-                                        inputs=[self.model.input,
+                                        params=model.trainable_weights)
+        self._updater = K.backend.function(
+                                        inputs=[model.input,
                                                 actions, rewards],
                                         outputs=[loss],
                                         updates=updates)
@@ -72,79 +74,103 @@ class PolicyEstimator(Estimator):
         return action_probs
 
     def to_feature(self, s):
-        # CartPole state is ...
-        # position, speed, angle, angle_speed = s
         feature = np.array(s).reshape((1, -1))
         return feature
 
-    def update(self, experiences):
-        states = []
-        actions = []
-        rewards = []
-
-        for e in experiences:
-            states.append(self.to_feature(e.s))
-            actions.append(e.a)
-            rewards.append(e.r)
-
-        states = np.vstack(states)
-        states = self.scaler.transform(states)
+    def update(self, states, actions, rewards):
+        _states = np.vstack([self.to_feature(s) for s in states])
+        _states = self.scaler.transform(_states)
         actions = np.array(actions)
-        rewards = np.array(rewards).reshape((-1, 1))
-        rewards = self.reward_scaler.transform(rewards).flatten()
-        self._trainer([states, actions, rewards])
+        rewards = np.array(rewards)
+        self._updater([_states, actions, rewards])
 
 
-class PolicyGradientAgent(FNAgent):
+class PolicyGradientTrainer(Trainer):
 
-    def __init__(self, epsilon=0.1):
-        super().__init__(epsilon, under_policy=True)
+    def __init__(self, log_dir=""):
+        super().__init__(log_dir)
+        self._reward_scaler = None
+        self.d_experiences = []
 
-    def learn(self, env, episode_count=200, gamma=0.9,
+    def train(self, env, episode_count=220, gamma=0.9, epsilon=0.1,
               buffer_size=1024, batch_size=32,
               render=False, report_interval=10):
         actions = list(range(env.action_space.n))
         self.buffer_size = buffer_size
         self.batch_size = batch_size
-        self.estimator = PolicyEstimator(actions, gamma)
+        self.gamma = gamma
+        self.report_interval = report_interval
+        agent = PolicyGradientAgent(epsilon, actions)
 
-        for e in range(episode_count):
-            s = env.reset()
-            done = False
-            experiences = []
-            rewards = []
-            while not done:
-                if render:
-                    env.render()
-                a = self.policy(s)
-                n_state, reward, done, info = env.step(a)
-                experiences.append([s, a, reward, n_state, done])
-                rewards.append(reward)
-                s = n_state
-            else:
-                # Calculate discounted reward on each time step
-                discounteds = []
-                for t, r in enumerate(rewards):
-                    future_r = [_r * (gamma ** i) for i, _r in
-                                enumerate(rewards[t:])]
-                    _r = sum(future_r)
-                    discounteds.append(_r)
+        self.train_loop(env, agent, episode_count, render)
+        return agent
 
-                for r, ex in zip(discounteds, experiences):
-                    s, a, _, n_s, done = ex
-                    self.feedback(s, a, r, n_s, done)
-                self.log(sum(rewards))
+    def step(self, episode_count, step_count, experience, agent):
+        if agent.initialized:
+            agent.update(*self.make_batch())
 
-            if e != 0 and e % report_interval == 0:
-                self.show_reward_log(interval=report_interval, episode=e)
+    def make_batch(self):
+        batch = random.sample(self.d_experiences, self.batch_size)
+        states = [e.s for e in batch]
+        actions = [e.a for e in batch]
+        rewards = [e.r for e in batch]
+        rewards = np.array(rewards).reshape((-1, 1))
+        rewards = self._reward_scaler.transform(rewards).flatten()
+        return states, actions, rewards
+
+    def episode_end(self, episode_count, step_count, agent):
+        rewards = [e.r for e in self.experiences]
+        self.reward_log.append(sum(rewards))
+
+        discounteds = []
+        for t, r in enumerate(rewards):
+            future_r = [_r * (self.gamma ** i) for i, _r in
+                        enumerate(rewards[t:])]
+            _r = sum(future_r)
+            discounteds.append(_r)
+
+        for i, e in enumerate(self.experiences):
+            s, a, r, n_s, d = e
+            d_r = discounteds[i]
+            d_e = Experience(s, a, d_r, n_s, d)
+            self.d_experiences.append(d_e)
+
+        self.experiences = []
+
+        if len(self.d_experiences) > self.buffer_size:
+            self.d_experiences = self.d_experiences[-self.buffer_size:]
+            if not agent.initialized:
+                optimizer = K.optimizers.Adam()
+                agent.initialize(self.d_experiences, optimizer)
+                self._reward_scaler = StandardScaler()
+                rewards = np.array([[e.r] for e in self.d_experiences])
+                self._reward_scaler.fit(rewards)
+
+        if self.is_event(episode_count, self.report_interval):
+            recent_rewards = self.reward_log[-self.report_interval:]
+            desc = self.make_desc("reward", recent_rewards)
+            print("At episode {}, {}".format(episode_count, desc))
 
 
-def train():
-    agent = PolicyGradientAgent()
+def main(play):
     env = gym.make("CartPole-v1")
-    agent.learn(env, render=False)
-    agent.show_reward_log()
+    trainer = PolicyGradientTrainer()
+    path = trainer.make_path("policy_gradient_agent.h5")
+
+    if play:
+        agent = PolicyGradientAgent.load(env, path)
+        agent.play(env)
+    else:
+        trained = trainer.train(env)
+        trainer.plot_logs("Rewards", trainer.reward_log,
+                          trainer.report_interval)
+        trained.save(path)
 
 
 if __name__ == "__main__":
-    train()
+    parser = argparse.ArgumentParser(description="PG Agent")
+    parser.add_argument("--play", action="store_true",
+                        help="play with trained model")
+
+    args = parser.parse_args()
+    main(args.play)

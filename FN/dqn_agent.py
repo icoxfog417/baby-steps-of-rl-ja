@@ -1,36 +1,32 @@
 import os
+import random
 import argparse
 import numpy as np
+import tensorflow as tf
 from tensorflow.python import keras as K
 from tensorflow.python.keras._impl.keras.models import clone_model
 from PIL import Image
 import gym
 import gym_ple
-from estimator import Estimator
-from fn_agent import FNAgent
+from fn_framework import FNAgent, Trainer, Experience
 
 
-class DeepQNetwork(Estimator):
+class DeepQNetworkAgent(FNAgent):
 
-    def __init__(self, actions, gamma=0.0):
-        super().__init__(actions)
-        self.gamma = gamma
+    def __init__(self, epsilon, actions):
+        super().__init__(epsilon, actions)
+        self.scaler = None
+        self._updater = None
         self._teacher_model = None
-        self.reset()
 
-    def initialize(self, experiences):
+    def initialize(self, experiences, optimizer):
         feature_shape = experiences[0].s.shape
-        self.set_estimator(feature_shape)
+        self.make_model(feature_shape)
+        self.model.compile(optimizer, loss="mse")
         self.initialized = True
         print("Done initialize. From now, begin training!")
 
-    @classmethod
-    def load(cls, actions, model_path):
-        estimator = cls(actions)
-        estimator.model = K.models.load_model(model_path)
-        return estimator
-
-    def _conv(self, filters, kernel_size, strides, input_shape=None):
+    def _conv(self, filters, kernel_size, strides, input_shape=(None,)):
         return K.layers.Conv2D(
             filters, kernel_size=kernel_size, strides=strides,
             input_shape=input_shape, padding="same",
@@ -40,7 +36,8 @@ class DeepQNetwork(Estimator):
         return K.layers.Dense(size, kernel_initializer="normal",
                               activation=activation)
 
-    def set_estimator(self, feature_shape):
+    def make_model(self, feature_shape):
+        print(feature_shape)
         model = K.Sequential()
         model.add(self._conv(filters=32, kernel_size=8, strides=4,
                              input_shape=feature_shape))
@@ -55,7 +52,7 @@ class DeepQNetwork(Estimator):
     def estimate(self, state):
         return self.model.predict(np.array([state]))[0]
 
-    def update(self, experiences):
+    def update(self, experiences, gamma):
         states = np.array([e.s for e in experiences])
         estimateds = self.model.predict(states)
 
@@ -65,10 +62,11 @@ class DeepQNetwork(Estimator):
         for i, e in enumerate(experiences):
             reward = e.r
             if not e.d:
-                reward += self.gamma * np.max(future_estimates[i])
+                reward += gamma * np.max(future_estimates[i])
             estimateds[i][e.a] = reward
 
-        self.model.train_on_batch(states, estimateds)
+        loss = self.model.train_on_batch(states, estimateds)
+        return loss
 
     def update_teacher(self):
         self._teacher_model = clone_model(self.model)
@@ -76,12 +74,17 @@ class DeepQNetwork(Estimator):
 
 class Observer():
 
-    def __init__(self, env, width, height, frame_count):
+    def __init__(self, env, width, height, frame_count, skip=0):
         self._env = env
         self.width = width
         self.height = height
         self.frame_count = frame_count
         self._frames = []
+        self.skip = skip
+
+    @property
+    def action_space(self):
+        return self._env.action_space
 
     def reset(self):
         return self.transform(self._env.reset())
@@ -89,8 +92,8 @@ class Observer():
     def render(self):
         self._env.render()
 
-    def step(self, action, skip=0):
-        for i in range(skip + 1):
+    def step(self, action):
+        for i in range(self.skip + 1):
             n_state, reward, done, info = self._env.step(action)
             n_state = self.transform(n_state)
         return n_state, reward, done, info
@@ -112,93 +115,95 @@ class Observer():
         return feature
 
 
-class DeepQNetworkAgent(FNAgent):
+class DeepQNetworkTrainer(Trainer):
 
-    def __init__(self, epsilon=0.0001, model_path=""):
-        super().__init__(epsilon)
-        self.model_path = model_path
-        if not model_path:
-            self.model_path = self._get_default_path()
-            _dir = os.path.dirname(self.model_path)
-            if not os.path.exists(_dir):
-                os.mkdir(_dir)
+    def __init__(self, log_dir="", file_name=""):
+        super().__init__(log_dir)
+        self.file_name = file_name if file_name else "dqn_agent.h5"
+        self._env = None
+        self.final_epsilon = 0.0001
+        self.epsilon_decay = 1.0
+        self.teacher_update_freq = 1
+        self.training_count = 0
+        self.loss = []
+        self.callback = K.callbacks.TensorBoard(self.log_dir)
 
-    @classmethod
-    def _get_default_path(cls):
-        path = os.path.join(os.path.dirname(__file__), "logs")
-        model_path = os.path.join(path, "dqn_model.h5")
-        return model_path
+    def train(self, env, episode_count=800, gamma=0.99, epsilon=0.0001,
+              epsilon_decay=0.995, buffer_size=65536, batch_size=32,
+              teacher_update_freq=10, render=False, report_interval=10):
+        if not isinstance(env, Observer):
+            raise Exception("Environment have to be wrapped by Observer")
+        else:
+            self._env = env
 
-    @classmethod
-    def load(cls, env, epsilon=0.0001, model_path=""):
-        model_path = model_path if model_path else cls._get_default_path()
         actions = list(range(env.action_space.n))
-        agent = cls(epsilon, model_path)
-        agent.estimator = DeepQNetwork.load(actions, model_path)
-        return agent
-
-    def _get_observer(self, env):
-        return Observer(env, 80, 80, 4)
-
-    def play(self, env, episode_count=5, render=False):
-        obs = self._get_observer(env)
-        super().play(obs, episode_count, render)
-
-    def learn(self, env, episode_count=800, gamma=0.99, epsilon_decay=0.995,
-              buffer_size=655, batch_size=32, teacher_update_freq=10,
-              render=False, report_interval=10):
-        actions = list(range(env.action_space.n))
-        obs = self._get_observer(env)
         self.buffer_size = buffer_size
         self.batch_size = batch_size
-        self.estimator = DeepQNetwork(actions, gamma)
-        final_epsilon = self.epsilon
-        self.epsilon = 1.0
-        training_step = -1
+        self.gamma = gamma
+        self.report_interval = report_interval
+        self.final_epsilon = epsilon
+        self.epsilon_decay = epsilon_decay
+        self.teacher_update_freq = teacher_update_freq
+        self.training_count = 0
+        agent = DeepQNetworkAgent(1.0, actions)
 
-        for e in range(episode_count):
-            s = obs.reset()
-            done = False
-            episode_reward = 0
-            skip = 0 if training_step < 0 else 4
-            while not done:
-                if render:
-                    obs.render()
-                a = self.policy(s)
-                n_state, reward, done, info = obs.step(a, skip=skip)
-                episode_reward += reward
-                switched = self.feedback(s, a, reward, n_state, done)
-                if switched:
-                    adam = K.optimizers.Adam(lr=1e-6, clipvalue=1.0)
-                    self.estimator.model.compile(optimizer=adam, loss="mse")
-                    training_step = 0
+        self.train_loop(env, agent, episode_count, render)
+        return agent
 
-                s = n_state
-            else:
-                self.log(episode_reward)
+    def episode_begin(self, episode_count, agent):
+        self.loss = []
 
-            if training_step >= 0:
-                self.epsilon = max(self.epsilon * epsilon_decay, final_epsilon)
-                if training_step % teacher_update_freq == 0:
-                    self.estimator.update_teacher()
-                if training_step % report_interval == 0:
-                    self.estimator.model.save(self.model_path, overwrite=True)
-                training_step += 1
+    def buffer_full(self, agent):
+        optimizer = K.optimizers.Adam(lr=1e-6, clipvalue=1.0)
+        agent.initialize(self.experiences, optimizer)
+        self.callback.set_model(agent.model)
+        self._env.skip = 4
 
-            if e != 0 and e % report_interval == 0:
-                self.show_reward_log(interval=report_interval, episode=e)
+    def step(self, episode_count, step_count, experience, agent):
+        if agent.initialized:
+            batch = random.sample(self.experiences, self.batch_size)
+            loss = agent.update(batch, self.gamma)
+            self.loss.append(loss)
+
+    def episode_end(self, episode_count, step_count, agent):
+        reward = sum([e.r for e in self.experiences[-step_count:]])
+        self.reward_log.append(reward)
+        if agent.initialized:
+            agent.epsilon = max(agent.epsilon * self.epsilon_decay,
+                                self.final_epsilon)
+            self.write_log(self.training_count, np.mean(self.loss), reward)
+            if self.is_event(self.training_count, self.report_interval):
+                agent.save(os.path.join(self.log_dir, self.file_name))
+            if self.is_event(self.training_count, self.teacher_update_freq):
+                agent.update_teacher()
+            self.training_count += 1
+
+        if self.is_event(episode_count, self.report_interval):
+            recent_rewards = self.reward_log[-self.report_interval:]
+            desc = self.make_desc("reward", recent_rewards)
+            print("At episode {}, {}".format(episode_count, desc))
+
+    def write_log(self, index, loss, score):
+        for name, value in zip(("loss", "score"), (loss, score)):
+            summary = tf.Summary()
+            summary_value = summary.value.add()
+            summary_value.simple_value = value
+            summary_value.tag = name
+            self.callback.writer.add_summary(summary, index)
+            self.callback.writer.flush()
 
 
 def main(play):
     env = gym.make("Catcher-v0")
+    obs = Observer(env, 80, 80, 4)
+    trainer = DeepQNetworkTrainer(file_name="dqn_agent.h5")
+    path = os.path.join(trainer.log_dir, trainer.file_name)
 
     if play:
-        agent = DeepQNetworkAgent.load(env)
-        agent.play(env, render=True)
+        agent = DeepQNetworkAgent.load(env, path)
+        agent.play(obs, render=True)
     else:
-        agent = DeepQNetworkAgent()
-        agent.learn(env, render=False)
-        agent.show_reward_log()
+        trainer.train(obs)
 
 
 if __name__ == "__main__":
