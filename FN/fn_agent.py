@@ -52,6 +52,16 @@ class FNAgent():
                 switched = True
         return switched
 
+    def play(self, env, episode_count=5, render=False):
+        for e in range(episode_count):
+            s = env.reset()
+            done = False
+            while not done:
+                if render:
+                    env.render()
+                a = self.policy(s)
+                n_state, reward, done, info = env.step(a)
+
     def log(self, reward):
         self.reward_log.append(reward)
 

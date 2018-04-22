@@ -161,7 +161,6 @@ class Trainer(object):
                     loss += self.agent.model.train_on_batch(X, y)
 
                 state = next_state
-
             loss = loss / len(rewards)
             score = sum(rewards)
 

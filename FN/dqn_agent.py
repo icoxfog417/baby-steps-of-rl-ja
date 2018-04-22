@@ -1,4 +1,5 @@
 import os
+import argparse
 import numpy as np
 from tensorflow.python import keras as K
 from tensorflow.python.keras._impl.keras.models import clone_model
@@ -11,7 +12,7 @@ from fn_agent import FNAgent
 
 class DeepQNetwork(Estimator):
 
-    def __init__(self, actions, gamma):
+    def __init__(self, actions, gamma=0.0):
         super().__init__(actions)
         self.gamma = gamma
         self._teacher_model = None
@@ -23,25 +24,31 @@ class DeepQNetwork(Estimator):
         self.initialized = True
         print("Done initialize. From now, begin training!")
 
+    @classmethod
+    def load(cls, actions, model_path):
+        estimator = cls(actions)
+        estimator.model = K.models.load_model(model_path)
+        return estimator
+
+    def _conv(self, filters, kernel_size, strides, input_shape=None):
+        return K.layers.Conv2D(
+            filters, kernel_size=kernel_size, strides=strides,
+            input_shape=input_shape, padding="same",
+            kernel_initializer="normal", activation="relu")
+
+    def _liner(self, size, activation=None):
+        return K.layers.Dense(size, kernel_initializer="normal",
+                              activation=activation)
+
     def set_estimator(self, feature_shape):
         model = K.Sequential()
-        model.add(K.layers.Conv2D(
-            32, kernel_size=8, strides=4, padding="same",
-            input_shape=feature_shape, kernel_initializer="normal",
-            activation="relu"))
-        model.add(K.layers.Conv2D(
-            64, kernel_size=4, strides=2, padding="same",
-            kernel_initializer="normal",
-            activation="relu"))
-        model.add(K.layers.Conv2D(
-            64, kernel_size=3, strides=1, padding="same",
-            kernel_initializer="normal",
-            activation="relu"))
+        model.add(self._conv(filters=32, kernel_size=8, strides=4,
+                             input_shape=feature_shape))
+        model.add(self._conv(filters=64, kernel_size=4, strides=2))
+        model.add(self._conv(filters=64, kernel_size=3, strides=1))
         model.add(K.layers.Flatten())
-        model.add(K.layers.Dense(512, kernel_initializer="normal",
-                                 activation="relu"))
-        model.add(K.layers.Dense(len(self.actions),
-                                 kernel_initializer="normal"))
+        model.add(self._liner(512, activation="relu"))
+        model.add(self._liner(len(self.actions)))
         self.model = model
         self._teacher_model = clone_model(self.model)
 
@@ -111,16 +118,37 @@ class DeepQNetworkAgent(FNAgent):
         super().__init__(epsilon)
         self.model_path = model_path
         if not model_path:
-            path = os.path.join(os.path.dirname(__file__), "logs")
-            if not os.path.exists(path):
-                os.mkdir(path)
-            self.model_path = os.path.join(path, "dqn_model.h5")
+            self.model_path = self._get_default_path()
+            _dir = os.path.dirname(self.model_path)
+            if not os.path.exists(_dir):
+                os.mkdir(_dir)
+
+    @classmethod
+    def _get_default_path(cls):
+        path = os.path.join(os.path.dirname(__file__), "logs")
+        model_path = os.path.join(path, "dqn_model.h5")
+        return model_path
+
+    @classmethod
+    def load(cls, env, epsilon=0.0001, model_path=""):
+        model_path = model_path if model_path else cls._get_default_path()
+        actions = list(range(env.action_space.n))
+        agent = cls(epsilon, model_path)
+        agent.estimator = DeepQNetwork.load(actions, model_path)
+        return agent
+
+    def _get_observer(self, env):
+        return Observer(env, 80, 80, 4)
+
+    def play(self, env, episode_count=5, render=False):
+        obs = self._get_observer(env)
+        super().play(obs, episode_count, render)
 
     def learn(self, env, episode_count=800, gamma=0.99, epsilon_decay=0.995,
-              buffer_size=65536, batch_size=32, teacher_update_freq=10,
+              buffer_size=655, batch_size=32, teacher_update_freq=10,
               render=False, report_interval=10):
         actions = list(range(env.action_space.n))
-        obs = Observer(env, 80, 80, 4)
+        obs = self._get_observer(env)
         self.buffer_size = buffer_size
         self.batch_size = batch_size
         self.estimator = DeepQNetwork(actions, gamma)
@@ -161,12 +189,22 @@ class DeepQNetworkAgent(FNAgent):
                 self.show_reward_log(interval=report_interval, episode=e)
 
 
-def train():
-    agent = DeepQNetworkAgent()
+def main(play):
     env = gym.make("Catcher-v0")
-    agent.learn(env, render=False)
-    agent.show_reward_log()
+
+    if play:
+        agent = DeepQNetworkAgent.load(env)
+        agent.play(env, render=True)
+    else:
+        agent = DeepQNetworkAgent()
+        agent.learn(env, render=False)
+        agent.show_reward_log()
 
 
 if __name__ == "__main__":
-    train()
+    parser = argparse.ArgumentParser(description="DQN Agent")
+    parser.add_argument("--play", action="store_true",
+                        help="play with trained model")
+
+    args = parser.parse_args()
+    main(args.play)
