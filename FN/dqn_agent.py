@@ -150,7 +150,7 @@ class DeepQNetworkTrainer(Trainer):
         agent.initialize(self.experiences, optimizer)
         self.callback.set_model(agent.model)
 
-    def step(self, episode_count, step_count, experience, agent):
+    def step(self, episode_count, step_count, agent, experience):
         if agent.initialized:
             batch = random.sample(self.experiences, self.batch_size)
             loss = agent.update(batch, self.gamma)

@@ -164,7 +164,7 @@ class ActorCriticTrainer(Trainer):
     def episode_begin(self, episode_count, agent):
         self.loss = []
 
-    def step(self, episode_count, step_count, experience, agent):
+    def step(self, episode_count, step_count, agent, experience):
         if agent.initialized:
             loss = agent.update(*self.make_batch())
             self.loss.append(loss)

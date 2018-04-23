@@ -96,7 +96,7 @@ class ValueFunctionTrainer(Trainer):
     def buffer_full(self, episode_count, agent):
         agent.initialize(self.experiences)
 
-    def step(self, episode_count, step_count, experience, agent):
+    def step(self, episode_count, step_count, agent, experience):
         if agent.initialized:
             batch = random.sample(self.experiences, self.batch_size)
             agent.update(batch, self.gamma)

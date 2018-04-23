@@ -102,11 +102,11 @@ class Trainer():
                 e = Experience(s, a, reward, n_state, done)
                 self.experiences.append(e)
                 if len(self.experiences) == self.buffer_size:
-                    self.buffer_full(agent)
+                    self.buffer_full(i, agent)
                 elif len(self.experiences) > self.buffer_size:
                     self.experiences.pop(0)
 
-                self.step(i, step_count, e, agent)
+                self.step(i, step_count, agent, e)
 
                 s = n_state
                 step_count += 1

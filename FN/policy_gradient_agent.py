@@ -105,7 +105,7 @@ class PolicyGradientTrainer(Trainer):
         self.train_loop(env, agent, episode_count, render)
         return agent
 
-    def step(self, episode_count, step_count, experience, agent):
+    def step(self, episode_count, step_count, agent, experience):
         if agent.initialized:
             agent.update(*self.make_batch())
 
