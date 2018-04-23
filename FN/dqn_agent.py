@@ -67,7 +67,7 @@ class DeepQNetworkAgent(FNAgent):
         return loss
 
     def update_teacher(self):
-        self._teacher_model = clone_model(self.model)
+        self._teacher_model.set_weights(self.model.get_weights())
 
 
 class Observer():
