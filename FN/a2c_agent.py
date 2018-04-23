@@ -1,39 +1,34 @@
 import os
+import argparse
+import random
 import numpy as np
 import tensorflow as tf
 from tensorflow.python import keras as K
+from sklearn.preprocessing import StandardScaler
 from PIL import Image
 import gym
 import gym_ple
-from fn_agent import FNAgent
+from fn_framework import FNAgent, Trainer, Experience
 
 
-class ActorCritic():
+class ActorCriticAgent(FNAgent):
 
-    def __init__(self, actions, gamma):
-        self.gamma = gamma
-        self.actions = actions
-        self.actor = None
-        self.critic = None
-        self.initialized = False
+    def __init__(self, epsilon, actions):
+        super().__init__(epsilon, actions)
+        self._updater = None
 
-    def reset(self):
-        self.actor = None
-        self.critic = None
-        self.initialized = False
-
-    def initialize(self, experiences):
+    def initialize(self, experiences, optimizer):
         feature_shape = experiences[0].s.shape
-        self.set_estimator(feature_shape)
-        self.set_actor_trainer()
+        self.make_model(feature_shape)
+        self.set_updater(optimizer)
         self.initialized = True
         print("Done initialize. From now, begin training!")
 
-    def _liner(self, size, activation):
+    def _liner(self, size, activation=None):
         return K.layers.Dense(size, kernel_initializer="normal",
                               activation=activation)
 
-    def set_estimator(self, feature_shape):
+    def make_model(self, feature_shape):
         model = K.Sequential()
         model.add(K.layers.Conv2D(
             32, kernel_size=8, strides=4, padding="same",
@@ -51,55 +46,45 @@ class ActorCritic():
         model.add(self._liner(512))
 
         actor_layer = self._liner(len(self.actions), "softmax")
-        critic_layer = self._liner(1, "tanh")
-
         action_probs = actor_layer(model.output)
-        value = critic_layer(model.output)
 
-        self.actor = K.Model(inputs=model.input, outputs=action_probs)
-        self.critic = K.Model(inputs=model.input, outputs=value)
+        critic_layer = self._liner(1)
+        values = critic_layer(model.output)
 
-    def set_actor_trainer(self):
+        self.model = K.Model(inputs=model.input,
+                             outputs=[action_probs, values])
+
+    def set_updater(self, optimizer, value_loss_weight=0.5):
         actions = tf.placeholder(shape=(None), dtype="int32")
         rewards = tf.placeholder(shape=(None), dtype="float32")
+
+        action_probs, values = self.model.output
+        values = tf.reshape(values, (-1,))
+        advantages = rewards - values
         one_hot_actions = tf.one_hot(actions, len(self.actions), axis=1)
-        action_probs = self.model.output
         selected_action_probs = tf.reduce_sum(one_hot_actions * action_probs,
                                               axis=1)
         clipped = tf.clip_by_value(selected_action_probs, 1e-10, 1.0)
-        loss = - tf.log(clipped) * rewards
-        loss = tf.reduce_mean(loss)
+        policy_loss = - tf.log(clipped) * advantages
+        policy_loss = tf.reduce_mean(policy_loss)
+        value_loss = tf.losses.mean_squared_error(rewards, values)
 
-        optimizer = K.optimizers.Adam()
+        loss = policy_loss + value_loss_weight * value_loss
+
         updates = optimizer.get_updates(loss=loss,
                                         params=self.model.trainable_weights)
-
-        self._trainer = K.backend.function(
+        self._updater = K.backend.function(
                                         inputs=[self.model.input,
                                                 actions, rewards],
                                         outputs=[loss],
                                         updates=updates)
 
     def estimate(self, state):
-        return self.model.predict(np.array([state]))[0]
+        action_probs, values = self.model.predict(np.array([state]))
+        return action_probs[0]
 
-    def update(self, experiences):
-        states = np.array([e.s for e in experiences])
-        estimateds = self.model.predict(states)
-
-        next_states = np.array([e.n_s for e in experiences])
-        future_estimates = self._teacher_model.predict(next_states)
-
-        for i, e in enumerate(experiences):
-            reward = e.r
-            if not e.d:
-                reward += self.gamma * np.max(future_estimates[i])
-            estimateds[i][e.a] = reward
-
-        self.model.train_on_batch(states, estimateds)
-
-    def update_teacher(self):
-        self._teacher_model = clone_model(self.model)
+    def update(self, states, actions, rewards):
+        return self._updater([states, actions, rewards])
 
 
 class Observer():
@@ -110,6 +95,10 @@ class Observer():
         self.height = height
         self.frame_count = frame_count
         self._frames = []
+
+    @property
+    def action_space(self):
+        return self._env.action_space
 
     def reset(self):
         return self.transform(self._env.reset())
@@ -140,68 +129,124 @@ class Observer():
         return feature
 
 
-class DeepQNetworkAgent(FNAgent):
+class ActorCriticTrainer(Trainer):
 
-    def __init__(self, epsilon=0.0001, model_path=""):
-        super().__init__(epsilon)
-        self.model_path = model_path
-        if not model_path:
-            path = os.path.join(os.path.dirname(__file__), "logs")
-            if not os.path.exists(path):
-                os.mkdir(path)
-            self.model_path = os.path.join(path, "dqn_model.h5")
+    def __init__(self, log_dir="", file_name=""):
+        super().__init__(log_dir)
+        self.file_name = file_name if file_name else "a2c_agent.h5"
+        self._reward_scaler = None
+        self.d_experiences = []
+        self.final_epsilon = 0.0001
+        self.epsilon_decay = 1e-6
+        self.training_count = 0
+        self.loss = []
+        self.callback = K.callbacks.TensorBoard(self.log_dir)
 
-    def learn(self, env, episode_count=800, gamma=0.99, epsilon_decay=0.995,
-              buffer_size=65536, batch_size=32, teacher_update_freq=10,
+    def train(self, env, episode_count=800, gamma=0.99, epsilon=0.0001,
+              epsilon_decay=1e-6, buffer_size=50000, batch_size=32,
               render=False, report_interval=10):
+        if not isinstance(env, Observer):
+            raise Exception("Environment have to be wrapped by Observer")
+
         actions = list(range(env.action_space.n))
-        obs = Observer(env, 80, 80, 4)
         self.buffer_size = buffer_size
         self.batch_size = batch_size
-        self.estimator = DeepQNetwork(actions, gamma)
-        final_epsilon = self.epsilon
-        self.epsilon = 1.0
-        training_step = -1
+        self.gamma = gamma
+        self.final_epsilon = epsilon
+        self.epsilon_decay = epsilon_decay
+        self.training_count = 0
+        self.report_interval = report_interval
+        agent = ActorCriticAgent(1.0, actions)
 
-        for e in range(episode_count):
-            s = obs.reset()
-            done = False
-            episode_reward = 0
-            skip = 0 if training_step < 0 else 4
-            while not done:
-                if render:
-                    obs.render()
-                a = self.policy(s)
-                n_state, reward, done, info = obs.step(a, skip=skip)
-                episode_reward += reward
-                switched = self.feedback(s, a, reward, n_state, done)
-                if switched:
-                    adam = K.optimizers.Adam(lr=1e-6, clipvalue=1.0)
-                    self.estimator.model.compile(optimizer=adam, loss="mse")
-                    training_step = 0
+        self.train_loop(env, agent, episode_count, render)
+        return agent
 
-                s = n_state
+    def episode_begin(self, episode_count, agent):
+        self.loss = []
+
+    def step(self, episode_count, step_count, experience, agent):
+        if agent.initialized:
+            loss = agent.update(*self.make_batch())
+            self.loss.append(loss)
+            agent.epsilon = max(agent.epsilon - self.epsilon_decay,
+                                self.final_epsilon)
+
+    def make_batch(self):
+        batch = random.sample(self.d_experiences, self.batch_size)
+        states = [e.s for e in batch]
+        actions = [e.a for e in batch]
+        rewards = [e.r for e in batch]
+        rewards = np.array(rewards).reshape((-1, 1))
+        rewards = self._reward_scaler.transform(rewards).flatten()
+        return states, actions, rewards
+
+    def episode_end(self, episode_count, step_count, agent):
+        rewards = [e.r for e in self.experiences]
+        self.reward_log.append(sum(rewards))
+
+        discounteds = []
+        for t, r in enumerate(rewards):
+            future_r = [_r * (self.gamma ** i) for i, _r in
+                        enumerate(rewards[t:])]
+            _r = sum(future_r)
+            discounteds.append(_r)
+
+        for i, e in enumerate(self.experiences):
+            s, a, r, n_s, d = e
+            d_r = discounteds[i]
+            d_e = Experience(s, a, d_r, n_s, d)
+            self.d_experiences.append(d_e)
+
+        self.experiences = []
+
+        if len(self.d_experiences) > self.buffer_size:
+            self.d_experiences = self.d_experiences[-self.buffer_size:]
+            if not agent.initialized:
+                optimizer = K.optimizers.Adam(lr=1e-6)
+                agent.initialize(self.d_experiences, optimizer)
+                self.callback.set_model(agent.model)
+                self._reward_scaler = StandardScaler()
+                rewards = np.array([[e.r] for e in self.d_experiences])
+                self._reward_scaler.fit(rewards)
             else:
-                self.log(episode_reward)
+                self.write_log(self.training_count,
+                               np.mean(self.loss), sum(rewards))
+                if self.is_event(self.training_count, self.report_interval):
+                    agent.save(os.path.join(self.log_dir, self.file_name))
+                self.training_count += 1
 
-            if training_step >= 0:
-                self.epsilon = max(self.epsilon * epsilon_decay, final_epsilon)
-                if training_step % teacher_update_freq == 0:
-                    self.estimator.update_teacher()
-                if training_step % report_interval == 0:
-                    self.estimator.model.save(self.model_path, overwrite=True)
-                training_step += 1
+        if self.is_event(episode_count, self.report_interval):
+            recent_rewards = self.reward_log[-self.report_interval:]
+            desc = self.make_desc("reward", recent_rewards)
+            print("At episode {}, {}".format(episode_count, desc))
 
-            if e != 0 and e % report_interval == 0:
-                self.show_reward_log(interval=report_interval, episode=e)
+    def write_log(self, index, loss, score):
+        for name, value in zip(("loss", "score"), (loss, score)):
+            summary = tf.Summary()
+            summary_value = summary.value.add()
+            summary_value.simple_value = value
+            summary_value.tag = name
+            self.callback.writer.add_summary(summary, index)
+            self.callback.writer.flush()
 
 
-def train():
-    agent = DeepQNetworkAgent()
+def main(play):
     env = gym.make("Catcher-v0")
-    agent.learn(env, render=False)
-    agent.show_reward_log()
+    obs = Observer(env, 80, 80, 4)
+    trainer = ActorCriticTrainer(file_name="a2c_agent.h5")
+    path = os.path.join(trainer.log_dir, trainer.file_name)
+
+    if play:
+        agent = ActorCriticAgent.load(env, path)
+        agent.play(obs, render=True)
+    else:
+        trainer.train(obs, report_interval=1)
 
 
 if __name__ == "__main__":
-    train()
+    parser = argparse.ArgumentParser(description="A2C Agent")
+    parser.add_argument("--play", action="store_true",
+                        help="play with trained model")
+
+    args = parser.parse_args()
+    main(args.play)

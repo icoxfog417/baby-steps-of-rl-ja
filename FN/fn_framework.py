@@ -28,7 +28,7 @@ class FNAgent():
         return agent
 
     def save(self, model_path):
-        self.model.save(model_path, overwrite=True)
+        self.model.save(model_path, overwrite=True, include_optimizer=False)
 
     def initialize(self, experiences):
         raise Exception("You have to implements estimate method")
@@ -119,7 +119,7 @@ class Trainer():
     def episode_begin(self, episode_count, agent):
         pass
 
-    def buffer_full(self, agent):
+    def buffer_full(self, episode_count, agent):
         pass
 
     def step(self, episode_count, step_count, agent, experience):

@@ -93,7 +93,7 @@ class ValueFunctionTrainer(Trainer):
         self.train_loop(env, agent, episode_count, render)
         return agent
 
-    def buffer_full(self, agent):
+    def buffer_full(self, episode_count, agent):
         agent.initialize(self.experiences)
 
     def step(self, episode_count, step_count, experience, agent):

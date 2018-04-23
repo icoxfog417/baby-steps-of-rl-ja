@@ -44,15 +44,15 @@ class PolicyGradientAgent(FNAgent):
             K.layers.Dense(10, activation="relu"),
             K.layers.Dense(len(self.actions), activation="softmax")
         ])
-        self.set_updater(self.model, optimizer)
+        self.set_updater(optimizer)
         self.initialized = True
         print("Done initialize. From now, begin training!")
 
-    def set_updater(self, model, optimizer):
+    def set_updater(self, optimizer):
         actions = tf.placeholder(shape=(None), dtype="int32")
         rewards = tf.placeholder(shape=(None), dtype="float32")
         one_hot_actions = tf.one_hot(actions, len(self.actions), axis=1)
-        action_probs = model.output
+        action_probs = self.model.output
         selected_action_probs = tf.reduce_sum(one_hot_actions * action_probs,
                                               axis=1)
         clipped = tf.clip_by_value(selected_action_probs, 1e-10, 1.0)
@@ -60,9 +60,9 @@ class PolicyGradientAgent(FNAgent):
         loss = tf.reduce_mean(loss)
 
         updates = optimizer.get_updates(loss=loss,
-                                        params=model.trainable_weights)
+                                        params=self.model.trainable_weights)
         self._updater = K.backend.function(
-                                        inputs=[model.input,
+                                        inputs=[self.model.input,
                                                 actions, rewards],
                                         outputs=[loss],
                                         updates=updates)
