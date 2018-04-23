@@ -142,7 +142,7 @@ class ActorCriticTrainer(Trainer):
         self.loss = []
         self.callback = K.callbacks.TensorBoard(self.log_dir)
 
-    def train(self, env, episode_count=800, gamma=0.99, epsilon=0.0001,
+    def train(self, env, episode_count=2000, gamma=0.99, epsilon=0.0001,
               epsilon_decay=1e-6, buffer_size=50000, batch_size=32,
               render=False, report_interval=10):
         if not isinstance(env, Observer):
