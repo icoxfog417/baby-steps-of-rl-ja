@@ -85,18 +85,17 @@ class Trainer():
         return os.path.join(self.log_dir, file_name)
 
     def train_loop(self, env, agent, episode_count=200, render=False):
-        _env = self.make_train_env(env)
         self.experiences = []
         self.reward_log = []
 
         for i in range(episode_count):
-            s = _env.reset()
+            s = env.reset()
             done = False
             step_count = 0
             self.episode_begin(i, agent)
             while not done:
                 if render:
-                    _env.render()
+                    env.render()
                 a = agent.policy(s)
                 n_state, reward, done, info = env.step(a)
 
@@ -113,9 +112,6 @@ class Trainer():
                 step_count += 1
             else:
                 self.episode_end(i, step_count, agent)
-
-    def make_train_env(self, env):
-        return env
 
     def episode_begin(self, episode_count, agent):
         pass

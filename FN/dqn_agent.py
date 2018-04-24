@@ -47,7 +47,6 @@ class DeepQNetworkAgent(FNAgent):
         self._teacher_model = clone_model(self.model)
 
     def estimate(self, state):
-        print(self.model.predict(np.array([state]))[0])
         return self.model.predict(np.array([state]))[0]
 
     def update(self, experiences, gamma):
@@ -112,7 +111,7 @@ class Observer():
 
 class DeepQNetworkTrainer(Trainer):
 
-    def __init__(self, buffer_size=500, batch_size=32,
+    def __init__(self, buffer_size=50000, batch_size=32,
                  gamma=0.99, initial_epsilon=0.1, final_epsilon=0.0001,
                  teacher_update_freq=5, report_interval=10,
                  log_dir="", file_name=""):
