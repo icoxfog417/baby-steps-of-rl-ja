@@ -41,12 +41,14 @@ class ActorCriticAgent(FNAgent):
             activation="relu"))
         model.add(K.layers.BatchNormalization())
         model.add(K.layers.Flatten())
-        model.add(K.layers.Dense(512, activation="tanh"))
+        model.add(K.layers.Dense(512, kernel_initializer="normal",
+                                 activation="relu"))
 
+        actor_hidden = K.layers.Dense(512, activation="tanh")
         actor_layer = K.layers.Dense(len(self.actions), activation="softmax")
-        action_probs = actor_layer(model.output)
+        action_probs = actor_layer(actor_hidden(model.output))
 
-        critic_layer = K.layers.Dense(1, activation="relu")
+        critic_layer = K.layers.Dense(1, kernel_initializer="normal")
         values = critic_layer(model.output)
 
         self.model = K.Model(inputs=model.input,

@@ -41,8 +41,10 @@ class DeepQNetworkAgent(FNAgent):
             activation="relu"))
         model.add(K.layers.BatchNormalization())
         model.add(K.layers.Flatten())
-        model.add(K.layers.Dense(512, activation="tanh"))
-        model.add(K.layers.Dense(len(self.actions)))
+        model.add(K.layers.Dense(512, kernel_initializer="normal",
+                                 activation="relu"))
+        model.add(K.layers.Dense(len(self.actions),
+                                 kernel_initializer="normal"))
         self.model = model
         self._teacher_model = clone_model(self.model)
 
