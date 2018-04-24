@@ -16,6 +16,7 @@ class ActorCriticAgent(FNAgent):
     def __init__(self, epsilon, actions):
         super().__init__(epsilon, actions)
         self._updater = None
+        self.estimate_probs = True
 
     def initialize(self, experiences, optimizer):
         feature_shape = experiences[0].s.shape
@@ -23,10 +24,6 @@ class ActorCriticAgent(FNAgent):
         self.set_updater(optimizer)
         self.initialized = True
         print("Done initialize. From now, begin training!")
-
-    def _liner(self, size, activation=None):
-        return K.layers.Dense(size, kernel_initializer="normal",
-                              activation=activation)
 
     def make_model(self, feature_shape):
         model = K.Sequential()
@@ -42,19 +39,21 @@ class ActorCriticAgent(FNAgent):
             64, kernel_size=3, strides=1, padding="same",
             kernel_initializer="normal",
             activation="relu"))
+        model.add(K.layers.BatchNormalization())
         model.add(K.layers.Flatten())
-        model.add(self._liner(512))
+        model.add(K.layers.Dense(512, activation="tanh"))
 
-        actor_layer = self._liner(len(self.actions), "softmax")
+        actor_layer = K.layers.Dense(len(self.actions), activation="softmax")
         action_probs = actor_layer(model.output)
 
-        critic_layer = self._liner(1)
+        critic_layer = K.layers.Dense(1, activation="relu")
         values = critic_layer(model.output)
 
         self.model = K.Model(inputs=model.input,
                              outputs=[action_probs, values])
 
-    def set_updater(self, optimizer, value_loss_weight=0.5):
+    def set_updater(self, optimizer,
+                    value_loss_weight=0.5, entropy_weight=0.01):
         actions = tf.placeholder(shape=(None), dtype="int32")
         rewards = tf.placeholder(shape=(None), dtype="float32")
 
@@ -68,8 +67,10 @@ class ActorCriticAgent(FNAgent):
         policy_loss = - tf.log(clipped) * advantages
         policy_loss = tf.reduce_mean(policy_loss)
         value_loss = tf.losses.mean_squared_error(rewards, values)
+        prob_entropy = tf.reduce_mean(self.categorical_entropy(action_probs))
 
         loss = policy_loss + value_loss_weight * value_loss
+        loss -= entropy_weight * prob_entropy
 
         updates = optimizer.get_updates(loss=loss,
                                         params=self.model.trainable_weights)
@@ -78,6 +79,17 @@ class ActorCriticAgent(FNAgent):
                                                 actions, rewards],
                                         outputs=[loss],
                                         updates=updates)
+
+    def categorical_entropy(self, logits):
+        """
+        From OpenAI A2C implementation
+        https://github.com/openai/baselines/blob/master/baselines/a2c/utils.py
+        """
+        a0 = logits - tf.reduce_max(logits, 1, keep_dims=True)
+        ea0 = tf.exp(a0)
+        z0 = tf.reduce_sum(ea0, 1, keep_dims=True)
+        p0 = ea0 / z0
+        return tf.reduce_sum(p0 * (tf.log(z0) - a0), 1)
 
     def estimate(self, state):
         action_probs, values = self.model.predict(np.array([state]))
@@ -131,31 +143,27 @@ class Observer():
 
 class ActorCriticTrainer(Trainer):
 
-    def __init__(self, log_dir="", file_name=""):
-        super().__init__(log_dir)
+    def __init__(self, buffer_size=500, batch_size=32,
+                 gamma=0.99, initial_epsilon=0.1, final_epsilon=0.0001,
+                 teacher_update_freq=5, report_interval=10,
+                 log_dir="", file_name=""):
+        super().__init__(buffer_size, batch_size, gamma,
+                         report_interval, log_dir)
         self.file_name = file_name if file_name else "a2c_agent.h5"
-        self._reward_scaler = None
-        self.d_experiences = []
-        self.final_epsilon = 0.0001
-        self.epsilon_decay = 1e-6
+        self.initial_epsilon = initial_epsilon
+        self.final_epsilon = final_epsilon
         self.training_count = 0
+        self.training_episode = 0
+        self.d_experiences = []
         self.loss = []
         self.callback = K.callbacks.TensorBoard(self.log_dir)
 
-    def train(self, env, episode_count=2000, gamma=0.99, epsilon=0.0001,
-              epsilon_decay=1e-6, buffer_size=50000, batch_size=32,
-              render=False, report_interval=10):
+    def train(self, env, episode_count=2000, render=False):
         if not isinstance(env, Observer):
             raise Exception("Environment have to be wrapped by Observer")
-
         actions = list(range(env.action_space.n))
-        self.buffer_size = buffer_size
-        self.batch_size = batch_size
-        self.gamma = gamma
-        self.final_epsilon = epsilon
-        self.epsilon_decay = epsilon_decay
         self.training_count = 0
-        self.report_interval = report_interval
+        self.training_episode = episode_count
         agent = ActorCriticAgent(1.0, actions)
 
         self.train_loop(env, agent, episode_count, render)
@@ -168,8 +176,9 @@ class ActorCriticTrainer(Trainer):
         if agent.initialized:
             loss = agent.update(*self.make_batch())
             self.loss.append(loss)
-            agent.epsilon = max(agent.epsilon - self.epsilon_decay,
-                                self.final_epsilon)
+            diff = (self.initial_epsilon - self.final_epsilon)
+            decay = diff / self.training_episode
+            agent.epsilon = max(agent.epsilon - decay, self.final_epsilon)
 
     def make_batch(self):
         batch = random.sample(self.d_experiences, self.batch_size)
@@ -208,6 +217,8 @@ class ActorCriticTrainer(Trainer):
                 self._reward_scaler = StandardScaler()
                 rewards = np.array([[e.r] for e in self.d_experiences])
                 self._reward_scaler.fit(rewards)
+                agent.epsilon = self.initial_epsilon
+                self.training_episode -= episode_count
             else:
                 self.write_log(self.training_count,
                                np.mean(self.loss), sum(rewards))
@@ -240,7 +251,7 @@ def main(play):
         agent = ActorCriticAgent.load(env, path)
         agent.play(obs, render=True)
     else:
-        trainer.train(obs, report_interval=1)
+        trainer.train(obs)
 
 
 if __name__ == "__main__":

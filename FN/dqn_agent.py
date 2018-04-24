@@ -27,27 +27,27 @@ class DeepQNetworkAgent(FNAgent):
 
     def make_model(self, feature_shape):
         model = K.Sequential()
-        model.add(self._conv(filters=32, kernel_size=8, strides=4,
-                             input_shape=feature_shape))
-        model.add(self._conv(filters=64, kernel_size=4, strides=2))
-        model.add(self._conv(filters=64, kernel_size=3, strides=1))
+        model.add(K.layers.Conv2D(
+            32, kernel_size=8, strides=4, padding="same",
+            input_shape=feature_shape, kernel_initializer="normal",
+            activation="relu"))
+        model.add(K.layers.Conv2D(
+            64, kernel_size=4, strides=2, padding="same",
+            kernel_initializer="normal",
+            activation="relu"))
+        model.add(K.layers.Conv2D(
+            64, kernel_size=3, strides=1, padding="same",
+            kernel_initializer="normal",
+            activation="relu"))
+        model.add(K.layers.BatchNormalization())
         model.add(K.layers.Flatten())
-        model.add(self._liner(512, activation="relu"))
-        model.add(self._liner(len(self.actions)))
+        model.add(K.layers.Dense(512, activation="tanh"))
+        model.add(K.layers.Dense(len(self.actions)))
         self.model = model
         self._teacher_model = clone_model(self.model)
 
-    def _conv(self, filters, kernel_size, strides, input_shape=(None,)):
-        return K.layers.Conv2D(
-            filters, kernel_size=kernel_size, strides=strides,
-            input_shape=input_shape, padding="same",
-            kernel_initializer="normal", activation="relu")
-
-    def _liner(self, size, activation=None):
-        return K.layers.Dense(size, kernel_initializer="normal",
-                              activation=activation)
-
     def estimate(self, state):
+        print(self.model.predict(np.array([state]))[0])
         return self.model.predict(np.array([state]))[0]
 
     def update(self, experiences, gamma):
@@ -112,33 +112,29 @@ class Observer():
 
 class DeepQNetworkTrainer(Trainer):
 
-    def __init__(self, log_dir="", file_name=""):
-        super().__init__(log_dir)
+    def __init__(self, buffer_size=500, batch_size=32,
+                 gamma=0.99, initial_epsilon=0.1, final_epsilon=0.0001,
+                 teacher_update_freq=5, report_interval=10,
+                 log_dir="", file_name=""):
+        super().__init__(buffer_size, batch_size, gamma,
+                         report_interval, log_dir)
         self.file_name = file_name if file_name else "dqn_agent.h5"
-        self.final_epsilon = 0.0001
-        self.epsilon_decay = 1e-6
+        self.initial_epsilon = initial_epsilon
+        self.final_epsilon = final_epsilon
+        self.teacher_update_freq = teacher_update_freq
         self.training_count = 0
+        self.training_episode = 0
         self.loss = []
         self.callback = K.callbacks.TensorBoard(self.log_dir)
 
-    def train(self, env, episode_count=2000, gamma=0.99,
-              epsilon=0.0001, epsilon_decay=1e-6,
-              buffer_size=50000, batch_size=32, teacher_update_freq=10,
-              render=False, report_interval=10):
+    def train(self, env, episode_count=2000, render=False):
         if not isinstance(env, Observer):
             raise Exception("Environment have to be wrapped by Observer")
 
         actions = list(range(env.action_space.n))
-        self.buffer_size = buffer_size
-        self.batch_size = batch_size
-        self.gamma = gamma
-        self.final_epsilon = epsilon
-        self.epsilon_decay = epsilon_decay
-        self.teacher_update_freq = teacher_update_freq
-        self.training_count = 0
-        self.report_interval = report_interval
         agent = DeepQNetworkAgent(1.0, actions)
-
+        self.training_count = 0
+        self.training_episode = episode_count
         self.train_loop(env, agent, episode_count, render)
         return agent
 
@@ -149,14 +145,17 @@ class DeepQNetworkTrainer(Trainer):
         optimizer = K.optimizers.Adam(lr=1e-6)
         agent.initialize(self.experiences, optimizer)
         self.callback.set_model(agent.model)
+        self.training_episode -= episode_count
+        agent.epsilon = self.initial_epsilon
 
     def step(self, episode_count, step_count, agent, experience):
         if agent.initialized:
             batch = random.sample(self.experiences, self.batch_size)
             loss = agent.update(batch, self.gamma)
             self.loss.append(loss)
-            agent.epsilon = max(agent.epsilon - self.epsilon_decay,
-                                self.final_epsilon)
+            diff = (self.initial_epsilon - self.final_epsilon)
+            decay = diff / self.training_episode
+            agent.epsilon = max(agent.epsilon - decay, self.final_epsilon)
 
     def episode_end(self, episode_count, step_count, agent):
         reward = sum([e.r for e in self.experiences[-step_count:]])

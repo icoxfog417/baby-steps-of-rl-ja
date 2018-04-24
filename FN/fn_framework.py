@@ -69,16 +69,17 @@ class FNAgent():
 
 class Trainer():
 
-    def __init__(self, log_dir=""):
-        self.buffer_size = 0
-        self.batch_size = 0
-        self.gamma = 0.99
-        self.experiences = []
-        self.reward_log = []
-        self.report_interval = 1
+    def __init__(self, buffer_size=1024, batch_size=32,
+                 gamma=0.9, report_interval=10, log_dir=""):
+        self.buffer_size = buffer_size
+        self.batch_size = batch_size
+        self.gamma = gamma
+        self.report_interval = report_interval
         self.log_dir = log_dir
         if not self.log_dir:
             self.log_dir = os.path.join(os.path.dirname(__file__), "logs")
+        self.experiences = []
+        self.reward_log = []
 
     def make_path(self, file_name):
         return os.path.join(self.log_dir, file_name)

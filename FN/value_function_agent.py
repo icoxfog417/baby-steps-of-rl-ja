@@ -77,17 +77,8 @@ class ValueFunctionAgent(FNAgent):
 
 class ValueFunctionTrainer(Trainer):
 
-    def __init__(self, log_dir=""):
-        super().__init__(log_dir)
-
-    def train(self, env, episode_count=220, gamma=0.9, epsilon=0.1,
-              buffer_size=1024, batch_size=32,
-              render=False, report_interval=10):
+    def train(self, env, episode_count=220, epsilon=0.1, render=False):
         actions = list(range(env.action_space.n))
-        self.buffer_size = buffer_size
-        self.batch_size = batch_size
-        self.gamma = gamma
-        self.report_interval = report_interval
         agent = ValueFunctionAgent(epsilon, actions)
 
         self.train_loop(env, agent, episode_count, render)
