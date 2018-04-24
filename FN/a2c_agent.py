@@ -169,6 +169,7 @@ class ActorCriticTrainer(Trainer):
         agent = ActorCriticAgent(1.0, actions)
 
         self.train_loop(env, agent, episode_count, render)
+        agent.save(os.path.join(self.log_dir, self.file_name))
         return agent
 
     def episode_begin(self, episode_count, agent):

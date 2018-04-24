@@ -8,14 +8,13 @@ from tensorflow.python.keras._impl.keras.models import clone_model
 from PIL import Image
 import gym
 import gym_ple
-from fn_framework import FNAgent, Trainer, Experience
+from fn_framework import FNAgent, Trainer
 
 
 class DeepQNetworkAgent(FNAgent):
 
     def __init__(self, epsilon, actions):
         super().__init__(epsilon, actions)
-        self._updater = None
         self._teacher_model = None
 
     def initialize(self, experiences, optimizer):
@@ -85,6 +84,7 @@ class Observer():
         return self._env.action_space
 
     def reset(self):
+        self._frames = []
         return self.transform(self._env.reset())
 
     def render(self):
@@ -113,7 +113,7 @@ class Observer():
 
 class DeepQNetworkTrainer(Trainer):
 
-    def __init__(self, buffer_size=50000, batch_size=32,
+    def __init__(self, buffer_size=500, batch_size=32,
                  gamma=0.99, initial_epsilon=0.1, final_epsilon=0.0001,
                  teacher_update_freq=5, report_interval=10,
                  log_dir="", file_name=""):
@@ -137,6 +137,7 @@ class DeepQNetworkTrainer(Trainer):
         self.training_count = 0
         self.training_episode = episode_count
         self.train_loop(env, agent, episode_count, render)
+        agent.save(os.path.join(self.log_dir, self.file_name))
         return agent
 
     def episode_begin(self, episode_count, agent):
