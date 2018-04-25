@@ -1,4 +1,3 @@
-import os
 import argparse
 import random
 import numpy as np
@@ -185,13 +184,13 @@ class ActorCriticTrainer(Trainer):
         agent = ActorCriticAgent(1.0, actions, test_mode)
 
         self.train_loop(env, agent, episode_count, render)
-        agent.save(os.path.join(self.log_dir, self.file_name))
+        agent.save(self.make_path(self.file_name))
         return agent
 
-    def episode_begin(self, episode_count, agent):
+    def episode_begin(self, episode, agent):
         self.loss = 0
 
-    def step(self, episode_count, step_count, agent, experience):
+    def step(self, episode, step_count, agent, experience):
         if agent.initialized:
             self.loss += agent.update(*self.make_batch())
 
@@ -204,7 +203,7 @@ class ActorCriticTrainer(Trainer):
         rewards = self._reward_scaler.transform(rewards).flatten()
         return states, actions, rewards
 
-    def episode_end(self, episode_count, step_count, agent):
+    def episode_end(self, episode, step_count, agent):
         rewards = [e.r for e in self.experiences]
         self.reward_log.append(sum(rewards))
 
@@ -238,17 +237,17 @@ class ActorCriticTrainer(Trainer):
                 loss = self.loss / step_count
                 self.write_log(self.training_count, loss, sum(rewards))
                 if self.is_event(self.training_count, self.report_interval):
-                    agent.save(os.path.join(self.log_dir, self.file_name))
+                    agent.save(self.make_path(self.file_name))
 
                 diff = (self.initial_epsilon - self.final_epsilon)
                 decay = diff / self.training_episode
                 agent.epsilon = max(agent.epsilon - decay, self.final_epsilon)
                 self.training_count += 1
 
-        if self.is_event(episode_count, self.report_interval):
+        if self.is_event(episode, self.report_interval):
             recent_rewards = self.reward_log[-self.report_interval:]
             desc = self.make_desc("reward", recent_rewards)
-            print("At episode {}, {}".format(episode_count, desc))
+            print("At episode {}, {}".format(episode, desc))
 
     def write_log(self, index, loss, score):
         for name, value in zip(("loss", "score"), (loss, score)):
@@ -271,7 +270,7 @@ def main(play, is_test):
         obs = Observer(env, 80, 80, 4)
 
     trainer = ActorCriticTrainer(file_name="a2c_agent.h5")
-    path = os.path.join(trainer.log_dir, trainer.file_name)
+    path = trainer.make_path(trainer.file_name)
 
     if play:
         agent = ActorCriticAgent.load(env, path)

@@ -101,7 +101,7 @@ class PolicyGradientTrainer(Trainer):
         self.train_loop(env, agent, episode_count, render)
         return agent
 
-    def step(self, episode_count, step_count, agent, experience):
+    def step(self, episode, step_count, agent, experience):
         if agent.initialized:
             agent.update(*self.make_batch())
 
@@ -114,7 +114,7 @@ class PolicyGradientTrainer(Trainer):
         rewards = self._reward_scaler.transform(rewards).flatten()
         return states, actions, rewards
 
-    def episode_end(self, episode_count, step_count, agent):
+    def episode_end(self, episode, step_count, agent):
         rewards = [e.r for e in self.experiences]
         self.reward_log.append(sum(rewards))
 
@@ -142,10 +142,10 @@ class PolicyGradientTrainer(Trainer):
                 rewards = np.array([[e.r] for e in self.d_experiences])
                 self._reward_scaler.fit(rewards)
 
-        if self.is_event(episode_count, self.report_interval):
+        if self.is_event(episode, self.report_interval):
             recent_rewards = self.reward_log[-self.report_interval:]
             desc = self.make_desc("reward", recent_rewards)
-            print("At episode {}, {}".format(episode_count, desc))
+            print("At episode {}, {}".format(episode, desc))
 
 
 def main(play):

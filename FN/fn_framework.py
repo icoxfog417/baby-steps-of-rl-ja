@@ -1,6 +1,6 @@
-from collections import namedtuple
 import os
-import random
+from collections import namedtuple
+from collections import deque
 import numpy as np
 from tensorflow.python import keras as K
 import matplotlib.pyplot as plt
@@ -19,6 +19,9 @@ class FNAgent():
         self.estimate_probs = False
         self.initialized = False
 
+    def save(self, model_path):
+        self.model.save(model_path, overwrite=True, include_optimizer=False)
+
     @classmethod
     def load(cls, env, model_path, epsilon=0.0001):
         actions = list(range(env.action_space.n))
@@ -26,9 +29,6 @@ class FNAgent():
         agent.model = K.models.load_model(model_path)
         agent.initialized = True
         return agent
-
-    def save(self, model_path):
-        self.model.save(model_path, overwrite=True, include_optimizer=False)
 
     def initialize(self, experiences):
         raise Exception("You have to implements estimate method")
@@ -78,14 +78,16 @@ class Trainer():
         self.log_dir = log_dir
         if not self.log_dir:
             self.log_dir = os.path.join(os.path.dirname(__file__), "logs")
-        self.experiences = []
+        self.experiences = deque(maxlen=buffer_size)
+        self.storing = True
         self.reward_log = []
 
     def make_path(self, file_name):
         return os.path.join(self.log_dir, file_name)
 
     def train_loop(self, env, agent, episode_count=200, render=False):
-        self.experiences = []
+        self.experiences = deque(maxlen=self.buffer_size)
+        self.storing = True
         self.reward_log = []
 
         for i in range(episode_count):
@@ -98,13 +100,11 @@ class Trainer():
                     env.render()
                 a = agent.policy(s)
                 n_state, reward, done, info = env.step(a)
-
                 e = Experience(s, a, reward, n_state, done)
                 self.experiences.append(e)
-                if len(self.experiences) == self.buffer_size:
+                if self.storing and len(self.experiences) == self.buffer_size:
                     self.buffer_full(i, agent)
-                elif len(self.experiences) > self.buffer_size:
-                    self.experiences.pop(0)
+                    self.storing = False
 
                 self.step(i, step_count, agent, e)
 
@@ -113,23 +113,24 @@ class Trainer():
             else:
                 self.episode_end(i, step_count, agent)
 
-    def episode_begin(self, episode_count, agent):
+    def episode_begin(self, episode, agent):
         pass
 
-    def buffer_full(self, episode_count, agent):
+    def buffer_full(self, episode, agent):
         pass
 
-    def step(self, episode_count, step_count, agent, experience):
+    def step(self, episode, step_count, agent, experience):
         pass
 
-    def episode_end(self, episode_count, step_count, agent):
+    def episode_end(self, episode, step_count, agent):
         pass
 
-    def is_event(self, episode_count, interval):
-        if episode_count != 0 and episode_count % interval == 0:
-            return True
-        else:
-            return False
+    def is_event(self, count, interval):
+        return True if count != 0 and count % interval == 0 else False
+
+    def get_recent(self, count):
+        recent = range(len(self.experiences) - count, len(self.experiences))
+        return [self.experiences[i] for i in recent]
 
     def make_desc(self, name, values):
         mean = np.round(np.mean(values), 3)
@@ -156,3 +157,30 @@ class Trainer():
                  label="Rewards for each {} episode".format(interval))
         plt.legend(loc="best")
         plt.show()
+
+
+class Observer():
+
+    def __init__(self, env):
+        self._env = env
+
+    @property
+    def action_space(self):
+        return self._env.action_space
+
+    @property
+    def observation_space(self):
+        return self._env.observation_space
+
+    def reset(self):
+        return self.transform(self._env.reset())
+
+    def render(self):
+        self._env.render()
+
+    def step(self, action):
+        n_state, reward, done, info = self._env.step(action)
+        return self.transform(n_state), reward, done, info
+
+    def transform(self, state):
+        raise Exception("You have to implements transform method")

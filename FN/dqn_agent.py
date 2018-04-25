@@ -1,4 +1,3 @@
-import os
 import random
 import argparse
 import numpy as np
@@ -152,32 +151,32 @@ class DeepQNetworkTrainer(Trainer):
         self.training_episode = episode_count
 
         self.train_loop(env, agent, episode_count, render)
-        agent.save(os.path.join(self.log_dir, self.file_name))
+        agent.save(self.make_path(self.file_name))
         return agent
 
-    def episode_begin(self, episode_count, agent):
+    def episode_begin(self, episode, agent):
         self.loss = 0
 
-    def buffer_full(self, episode_count, agent):
+    def buffer_full(self, episode, agent):
         optimizer = K.optimizers.Adam(clipvalue=1.0)
         agent.initialize(self.experiences, optimizer)
         self.callback.set_model(agent.model)
-        self.training_episode -= episode_count
+        self.training_episode -= episode
         agent.epsilon = self.initial_epsilon
 
-    def step(self, episode_count, step_count, agent, experience):
+    def step(self, episode, step_count, agent, experience):
         if agent.initialized:
             batch = random.sample(self.experiences, self.batch_size)
             self.loss += agent.update(batch, self.gamma)
 
-    def episode_end(self, episode_count, step_count, agent):
+    def episode_end(self, episode, step_count, agent):
         reward = sum([e.r for e in self.experiences[-step_count:]])
         self.loss = self.loss / step_count
         self.reward_log.append(reward)
         if agent.initialized:
             self.write_log(self.training_count, self.loss, reward)
             if self.is_event(self.training_count, self.report_interval):
-                agent.save(os.path.join(self.log_dir, self.file_name))
+                agent.save(self.make_path(self.file_name))
             if self.is_event(self.training_count, self.teacher_update_freq):
                 agent.update_teacher()
 
@@ -186,10 +185,10 @@ class DeepQNetworkTrainer(Trainer):
             agent.epsilon = max(agent.epsilon - decay, self.final_epsilon)
             self.training_count += 1
 
-        if self.is_event(episode_count, self.report_interval):
+        if self.is_event(episode, self.report_interval):
             recent_rewards = self.reward_log[-self.report_interval:]
             desc = self.make_desc("reward", recent_rewards)
-            print("At episode {}, {}".format(episode_count, desc))
+            print("At episode {}, {}".format(episode, desc))
 
     def write_log(self, index, loss, score):
         for name, value in zip(("loss", "score"), (loss, score)):
@@ -212,7 +211,7 @@ def main(play, is_test):
         obs = Observer(env, 80, 80, 4)
 
     trainer = DeepQNetworkTrainer(file_name="dqn_agent.h5")
-    path = os.path.join(trainer.log_dir, trainer.file_name)
+    path = trainer.make_path(trainer.file_name)
     if play:
         agent = DeepQNetworkAgent.load(obs, path)
         agent.play(obs, render=True)

@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.externals import joblib
 import gym
-from fn_framework import FNAgent, Trainer
+from fn_framework import FNAgent, Trainer, Observer
 
 
 class ValueFunctionAgent(FNAgent):
@@ -24,29 +24,20 @@ class ValueFunctionAgent(FNAgent):
 
     def initialize(self, experiences):
         scaler = StandardScaler()
-        estimator = MLPRegressor(
-                        hidden_layer_sizes=(10, 10),
-                        max_iter=1)
+        estimator = MLPRegressor(hidden_layer_sizes=(10, 10), max_iter=1)
         self.model = Pipeline([("scaler", scaler), ("estimator", estimator)])
 
-        features = np.vstack([self.to_feature(e.s) for e in experiences])
+        features = np.vstack([e.s for e in experiences])
         self.model.named_steps["scaler"].fit(features)
 
         # Avoid the predict before fit. Use a little sample to fit.
-        self.update(experiences[:2], gamma=0)
+        self.update([experiences[0]], gamma=0)
         self.initialized = True
         print("Done initialize. From now, begin training!")
 
     def estimate(self, s):
-        feature = self.to_feature(s)
-        estimated = self.model.predict(feature)[0]
+        estimated = self.model.predict(s)[0]
         return estimated
-
-    def to_feature(self, s):
-        # CartPole state is ...
-        # position, speed, angle, angle_speed = s
-        feature = np.array(s).reshape((1, -1))
-        return feature
 
     def _predict(self, states):
         if self.initialized:
@@ -58,8 +49,8 @@ class ValueFunctionAgent(FNAgent):
         return predicteds
 
     def update(self, experiences, gamma):
-        states = np.vstack([self.to_feature(e.s) for e in experiences])
-        n_states = np.vstack([self.to_feature(e.n_s) for e in experiences])
+        states = np.vstack([e.s for e in experiences])
+        n_states = np.vstack([e.n_s for e in experiences])
 
         estimateds = self._predict(states)
         future = self._predict(n_states)
@@ -75,6 +66,12 @@ class ValueFunctionAgent(FNAgent):
         self.model.named_steps["estimator"].partial_fit(states, estimateds)
 
 
+class CartPoleObserver(Observer):
+
+    def transform(self, state):
+        return np.array(state).reshape((1, -1))
+
+
 class ValueFunctionTrainer(Trainer):
 
     def train(self, env, episode_count=220, epsilon=0.1, render=False):
@@ -84,26 +81,26 @@ class ValueFunctionTrainer(Trainer):
         self.train_loop(env, agent, episode_count, render)
         return agent
 
-    def buffer_full(self, episode_count, agent):
+    def buffer_full(self, episode, agent):
         agent.initialize(self.experiences)
 
-    def step(self, episode_count, step_count, agent, experience):
+    def step(self, episode, step_count, agent, experience):
         if agent.initialized:
             batch = random.sample(self.experiences, self.batch_size)
             agent.update(batch, self.gamma)
 
-    def episode_end(self, episode_count, step_count, agent):
-        rewards = ([e.r for e in self.experiences[-step_count:]])
+    def episode_end(self, episode, step_count, agent):
+        rewards = [e.r for e in self.get_recent(step_count)]
         self.reward_log.append(sum(rewards))
 
-        if self.is_event(episode_count, self.report_interval):
+        if self.is_event(episode, self.report_interval):
             recent_rewards = self.reward_log[-self.report_interval:]
             desc = self.make_desc("reward", recent_rewards)
-            print("At episode {}, {}".format(episode_count, desc))
+            print("At episode {}, {}".format(episode, desc))
 
 
 def main(play):
-    env = gym.make("CartPole-v0")
+    env = CartPoleObserver(gym.make("CartPole-v0"))
     trainer = ValueFunctionTrainer()
     path = trainer.make_path("value_function_agent.pkl")
 
