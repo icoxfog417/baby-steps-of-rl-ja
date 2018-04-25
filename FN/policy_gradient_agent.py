@@ -149,7 +149,7 @@ class PolicyGradientTrainer(Trainer):
 
 
 def main(play):
-    env = gym.make("CartPole-v1")
+    env = gym.make("CartPole-v0")
     trainer = PolicyGradientTrainer()
     path = trainer.make_path("policy_gradient_agent.h5")
 

@@ -13,13 +13,17 @@ from fn_framework import FNAgent, Trainer
 
 class DeepQNetworkAgent(FNAgent):
 
-    def __init__(self, epsilon, actions):
+    def __init__(self, epsilon, actions, test_mode=False):
         super().__init__(epsilon, actions)
+        self.test_mode = test_mode
         self._teacher_model = None
 
     def initialize(self, experiences, optimizer):
         feature_shape = experiences[0].s.shape
-        self.make_model(feature_shape)
+        if self.test_mode:
+            self.make_test_model(feature_shape)
+        else:
+            self.make_model(feature_shape)
         self.model.compile(optimizer, loss="mse")
         self.initialized = True
         print("Done initialize. From now, begin training!")
@@ -44,6 +48,19 @@ class DeepQNetworkAgent(FNAgent):
                                  activation="relu"))
         model.add(K.layers.Dense(len(self.actions),
                                  kernel_initializer="normal"))
+        model.add(K.layers.Dense(64, input_shape=feature_shape,
+                                 activation="relu"))
+        model.add(K.layers.Dense(64, activation="relu"))
+        model.add(K.layers.Dense(len(self.actions),
+                                 kernel_initializer="normal"))
+        self.model = model
+        self._teacher_model = clone_model(self.model)
+
+    def make_test_model(self, feature_shape):
+        model = K.Sequential()
+        model.add(K.layers.Dense(64, input_shape=feature_shape,
+                                 activation="relu"))
+        model.add(K.layers.Dense(len(self.actions), activation="relu"))
         self.model = model
         self._teacher_model = clone_model(self.model)
 
@@ -52,15 +69,15 @@ class DeepQNetworkAgent(FNAgent):
 
     def update(self, experiences, gamma):
         states = np.array([e.s for e in experiences])
-        estimateds = self.model.predict(states)
+        n_states = np.array([e.n_s for e in experiences])
 
-        next_states = np.array([e.n_s for e in experiences])
-        future_estimates = self._teacher_model.predict(next_states)
+        estimateds = self.model.predict(states)
+        future = self.model.predict(n_states)
 
         for i, e in enumerate(experiences):
             reward = e.r
             if not e.d:
-                reward += gamma * np.max(future_estimates[i])
+                reward += gamma * np.max(future[i])
             estimateds[i][e.a] = reward
 
         loss = self.model.train_on_batch(states, estimateds)
@@ -125,26 +142,24 @@ class DeepQNetworkTrainer(Trainer):
         self.teacher_update_freq = teacher_update_freq
         self.training_count = 0
         self.training_episode = 0
-        self.loss = []
+        self.loss = 0
         self.callback = K.callbacks.TensorBoard(self.log_dir)
 
-    def train(self, env, episode_count=2000, render=False):
-        if not isinstance(env, Observer):
-            raise Exception("Environment have to be wrapped by Observer")
-
+    def train(self, env, episode_count=2000, render=False, test_mode=False):
         actions = list(range(env.action_space.n))
-        agent = DeepQNetworkAgent(1.0, actions)
+        agent = DeepQNetworkAgent(1.0, actions, test_mode)
         self.training_count = 0
         self.training_episode = episode_count
+
         self.train_loop(env, agent, episode_count, render)
         agent.save(os.path.join(self.log_dir, self.file_name))
         return agent
 
     def episode_begin(self, episode_count, agent):
-        self.loss = []
+        self.loss = 0
 
     def buffer_full(self, episode_count, agent):
-        optimizer = K.optimizers.Adam(lr=1e-6)
+        optimizer = K.optimizers.Adam(clipvalue=1.0)
         agent.initialize(self.experiences, optimizer)
         self.callback.set_model(agent.model)
         self.training_episode -= episode_count
@@ -153,21 +168,22 @@ class DeepQNetworkTrainer(Trainer):
     def step(self, episode_count, step_count, agent, experience):
         if agent.initialized:
             batch = random.sample(self.experiences, self.batch_size)
-            loss = agent.update(batch, self.gamma)
-            self.loss.append(loss)
-            diff = (self.initial_epsilon - self.final_epsilon)
-            decay = diff / self.training_episode
-            agent.epsilon = max(agent.epsilon - decay, self.final_epsilon)
+            self.loss += agent.update(batch, self.gamma)
 
     def episode_end(self, episode_count, step_count, agent):
         reward = sum([e.r for e in self.experiences[-step_count:]])
+        self.loss = self.loss / step_count
         self.reward_log.append(reward)
         if agent.initialized:
-            self.write_log(self.training_count, np.mean(self.loss), reward)
+            self.write_log(self.training_count, self.loss, reward)
             if self.is_event(self.training_count, self.report_interval):
                 agent.save(os.path.join(self.log_dir, self.file_name))
             if self.is_event(self.training_count, self.teacher_update_freq):
                 agent.update_teacher()
+
+            diff = (self.initial_epsilon - self.final_epsilon)
+            decay = diff / self.training_episode
+            agent.epsilon = max(agent.epsilon - decay, self.final_epsilon)
             self.training_count += 1
 
         if self.is_event(episode_count, self.report_interval):
@@ -185,23 +201,31 @@ class DeepQNetworkTrainer(Trainer):
             self.callback.writer.flush()
 
 
-def main(play):
-    env = gym.make("Catcher-v0")
-    obs = Observer(env, 80, 80, 4)
+def main(play, is_test):
+    episode_count = 2000
+    if is_test:
+        print("Train on test mode")
+        obs = gym.make("CartPole-v0")
+        episode_count = 3000
+    else:
+        env = gym.make("Catcher-v0")
+        obs = Observer(env, 80, 80, 4)
+
     trainer = DeepQNetworkTrainer(file_name="dqn_agent.h5")
     path = os.path.join(trainer.log_dir, trainer.file_name)
-
     if play:
-        agent = DeepQNetworkAgent.load(env, path)
+        agent = DeepQNetworkAgent.load(obs, path)
         agent.play(obs, render=True)
     else:
-        trainer.train(obs)
+        trainer.train(obs, episode_count=episode_count, test_mode=is_test)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="DQN Agent")
     parser.add_argument("--play", action="store_true",
                         help="play with trained model")
+    parser.add_argument("--test", action="store_true",
+                        help="train by test mode")
 
     args = parser.parse_args()
-    main(args.play)
+    main(args.play, args.test)

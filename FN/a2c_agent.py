@@ -13,14 +13,19 @@ from fn_framework import FNAgent, Trainer, Experience
 
 class ActorCriticAgent(FNAgent):
 
-    def __init__(self, epsilon, actions):
+    def __init__(self, epsilon, actions, test_mode=False):
         super().__init__(epsilon, actions)
+        self.test_mode = test_mode
         self._updater = None
         self.estimate_probs = True
 
     def initialize(self, experiences, optimizer):
         feature_shape = experiences[0].s.shape
-        self.make_model(feature_shape)
+        feature_shape = experiences[0].s.shape
+        if self.test_mode:
+            self.make_test_model(feature_shape)
+        else:
+            self.make_model(feature_shape)
         self.set_updater(optimizer)
         self.initialized = True
         print("Done initialize. From now, begin training!")
@@ -44,18 +49,31 @@ class ActorCriticAgent(FNAgent):
         model.add(K.layers.Dense(512, kernel_initializer="normal",
                                  activation="relu"))
 
-        actor_hidden = K.layers.Dense(512, activation="tanh")
         actor_layer = K.layers.Dense(len(self.actions), activation="softmax")
-        action_probs = actor_layer(actor_hidden(model.output))
+        action_probs = actor_layer(model.output)
 
-        critic_layer = K.layers.Dense(1, kernel_initializer="normal")
+        critic_layer = K.layers.Dense(1, activation="tanh")
+        values = critic_layer(model.output)
+
+        self.model = K.Model(inputs=model.input,
+                             outputs=[action_probs, values])
+
+    def make_test_model(self, feature_shape):
+        model = K.Sequential()
+        model.add(K.layers.Dense(64, input_shape=feature_shape,
+                                 activation="relu"))
+        model.add(K.layers.Dense(64, activation="relu"))
+
+        actor_layer = K.layers.Dense(len(self.actions), activation="softmax")
+        action_probs = actor_layer(model.output)
+        critic_layer = K.layers.Dense(1, activation="tanh")
         values = critic_layer(model.output)
 
         self.model = K.Model(inputs=model.input,
                              outputs=[action_probs, values])
 
     def set_updater(self, optimizer,
-                    value_loss_weight=0.5, entropy_weight=0.01):
+                    value_loss_weight=0.8, entropy_weight=0.01):
         actions = tf.placeholder(shape=(None), dtype="int32")
         rewards = tf.placeholder(shape=(None), dtype="float32")
 
@@ -157,31 +175,25 @@ class ActorCriticTrainer(Trainer):
         self.training_count = 0
         self.training_episode = 0
         self.d_experiences = []
-        self.loss = []
+        self.loss = 0
         self.callback = K.callbacks.TensorBoard(self.log_dir)
 
-    def train(self, env, episode_count=2000, render=False):
-        if not isinstance(env, Observer):
-            raise Exception("Environment have to be wrapped by Observer")
+    def train(self, env, episode_count=2000, render=False, test_mode=False):
         actions = list(range(env.action_space.n))
         self.training_count = 0
         self.training_episode = episode_count
-        agent = ActorCriticAgent(1.0, actions)
+        agent = ActorCriticAgent(1.0, actions, test_mode)
 
         self.train_loop(env, agent, episode_count, render)
         agent.save(os.path.join(self.log_dir, self.file_name))
         return agent
 
     def episode_begin(self, episode_count, agent):
-        self.loss = []
+        self.loss = 0
 
     def step(self, episode_count, step_count, agent, experience):
         if agent.initialized:
-            loss = agent.update(*self.make_batch())
-            self.loss.append(loss)
-            diff = (self.initial_epsilon - self.final_epsilon)
-            decay = diff / self.training_episode
-            agent.epsilon = max(agent.epsilon - decay, self.final_epsilon)
+            loss += agent.update(*self.make_batch())
 
     def make_batch(self):
         batch = random.sample(self.d_experiences, self.batch_size)
@@ -214,7 +226,7 @@ class ActorCriticTrainer(Trainer):
         if len(self.d_experiences) > self.buffer_size:
             self.d_experiences = self.d_experiences[-self.buffer_size:]
             if not agent.initialized:
-                optimizer = K.optimizers.Adam(lr=1e-6)
+                optimizer = K.optimizers.Adam(clipvalue=1.0)
                 agent.initialize(self.d_experiences, optimizer)
                 self.callback.set_model(agent.model)
                 self._reward_scaler = StandardScaler()
@@ -223,10 +235,14 @@ class ActorCriticTrainer(Trainer):
                 agent.epsilon = self.initial_epsilon
                 self.training_episode -= episode_count
             else:
-                self.write_log(self.training_count,
-                               np.mean(self.loss), sum(rewards))
+                loss = self.loss / step_count
+                self.write_log(self.training_count, loss, sum(rewards))
                 if self.is_event(self.training_count, self.report_interval):
                     agent.save(os.path.join(self.log_dir, self.file_name))
+
+                diff = (self.initial_epsilon - self.final_epsilon)
+                decay = diff / self.training_episode
+                agent.epsilon = max(agent.epsilon - decay, self.final_epsilon)
                 self.training_count += 1
 
         if self.is_event(episode_count, self.report_interval):
@@ -244,9 +260,16 @@ class ActorCriticTrainer(Trainer):
             self.callback.writer.flush()
 
 
-def main(play):
-    env = gym.make("Catcher-v0")
-    obs = Observer(env, 80, 80, 4)
+def main(play, is_test):
+    episode_count = 2000
+    if is_test:
+        print("Train on test mode")
+        obs = gym.make("CartPole-v0")
+        episode_count = 3000
+    else:
+        env = gym.make("Catcher-v0")
+        obs = Observer(env, 80, 80, 4)
+
     trainer = ActorCriticTrainer(file_name="a2c_agent.h5")
     path = os.path.join(trainer.log_dir, trainer.file_name)
 
@@ -254,13 +277,15 @@ def main(play):
         agent = ActorCriticAgent.load(env, path)
         agent.play(obs, render=True)
     else:
-        trainer.train(obs)
+        trainer.train(obs, episode_count=episode_count, test_mode=is_test)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="A2C Agent")
     parser.add_argument("--play", action="store_true",
                         help="play with trained model")
+    parser.add_argument("--test", action="store_true",
+                        help="train by test mode")
 
     args = parser.parse_args()
-    main(args.play)
+    main(args.play, args.test)

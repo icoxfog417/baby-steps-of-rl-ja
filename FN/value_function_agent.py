@@ -93,8 +93,8 @@ class ValueFunctionTrainer(Trainer):
             agent.update(batch, self.gamma)
 
     def episode_end(self, episode_count, step_count, agent):
-        reward_in_episode = ([e.r for e in self.experiences[-step_count:]])
-        self.reward_log.append(sum(reward_in_episode))
+        rewards = ([e.r for e in self.experiences[-step_count:]])
+        self.reward_log.append(sum(rewards))
 
         if self.is_event(episode_count, self.report_interval):
             recent_rewards = self.reward_log[-self.report_interval:]
@@ -103,7 +103,7 @@ class ValueFunctionTrainer(Trainer):
 
 
 def main(play):
-    env = gym.make("CartPole-v1")
+    env = gym.make("CartPole-v0")
     trainer = ValueFunctionTrainer()
     path = trainer.make_path("value_function_agent.pkl")
 
