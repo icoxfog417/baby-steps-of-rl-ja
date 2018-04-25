@@ -193,7 +193,7 @@ class ActorCriticTrainer(Trainer):
 
     def step(self, episode_count, step_count, agent, experience):
         if agent.initialized:
-            loss += agent.update(*self.make_batch())
+            self.loss += agent.update(*self.make_batch())
 
     def make_batch(self):
         batch = random.sample(self.d_experiences, self.batch_size)
