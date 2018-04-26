@@ -1,5 +1,6 @@
 import random
 import argparse
+from collections import deque
 import numpy as np
 import tensorflow as tf
 from tensorflow.python import keras as K
@@ -7,7 +8,7 @@ from tensorflow.python.keras._impl.keras.models import clone_model
 from PIL import Image
 import gym
 import gym_ple
-from fn_framework import FNAgent, Trainer
+from fn_framework import FNAgent, Trainer, Observer
 
 
 class DeepQNetworkAgent(FNAgent):
@@ -21,9 +22,10 @@ class DeepQNetworkAgent(FNAgent):
         feature_shape = experiences[0].s.shape
         if self.test_mode:
             self.make_test_model(feature_shape)
+            self.model.compile(optimizer, loss="mse")
         else:
             self.make_model(feature_shape)
-        self.model.compile(optimizer, loss="mse")
+            self.model.compile(optimizer, loss=tf.losses.huber_loss)
         self.initialized = True
         print("Done initialize. From now, begin training!")
 
@@ -41,15 +43,9 @@ class DeepQNetworkAgent(FNAgent):
             64, kernel_size=3, strides=1, padding="same",
             kernel_initializer="normal",
             activation="relu"))
-        model.add(K.layers.BatchNormalization())
         model.add(K.layers.Flatten())
-        model.add(K.layers.Dense(512, kernel_initializer="normal",
+        model.add(K.layers.Dense(256, kernel_initializer="normal",
                                  activation="relu"))
-        model.add(K.layers.Dense(len(self.actions),
-                                 kernel_initializer="normal"))
-        model.add(K.layers.Dense(64, input_shape=feature_shape,
-                                 activation="relu"))
-        model.add(K.layers.Dense(64, activation="relu"))
         model.add(K.layers.Dense(len(self.actions),
                                  kernel_initializer="normal"))
         self.model = model
@@ -71,7 +67,7 @@ class DeepQNetworkAgent(FNAgent):
         n_states = np.array([e.n_s for e in experiences])
 
         estimateds = self.model.predict(states)
-        future = self.model.predict(n_states)
+        future = self._teacher_model.predict(n_states)
 
         for i, e in enumerate(experiences):
             reward = e.r
@@ -86,29 +82,14 @@ class DeepQNetworkAgent(FNAgent):
         self._teacher_model.set_weights(self.model.get_weights())
 
 
-class Observer():
+class CatcherObserver(Observer):
 
     def __init__(self, env, width, height, frame_count):
-        self._env = env
+        super().__init__(env)
         self.width = width
         self.height = height
         self.frame_count = frame_count
-        self._frames = []
-
-    @property
-    def action_space(self):
-        return self._env.action_space
-
-    def reset(self):
-        self._frames = []
-        return self.transform(self._env.reset())
-
-    def render(self):
-        self._env.render()
-
-    def step(self, action):
-        n_state, reward, done, info = self._env.step(action)
-        return self.transform(n_state), reward, done, info
+        self._frames = deque(maxlen=frame_count)
 
     def transform(self, state):
         grayed = Image.fromarray(state).convert("L")
@@ -116,28 +97,29 @@ class Observer():
         resized = np.array(resized).astype("float")
         normalized = resized / 255  # scale to 0~1
         if len(self._frames) == 0:
-            self._frames = [normalized] * self.frame_count
+            for i in range(self.frame_count):
+                self._frames.append(normalized)
         else:
             self._frames.append(normalized)
-            self._frames.pop(0)
-
         feature = np.array(self._frames)
         # Convert the feature shape (f, w, h) => (w, h, f)
         feature = np.transpose(feature, (1, 2, 0))
+
         return feature
 
 
 class DeepQNetworkTrainer(Trainer):
 
     def __init__(self, buffer_size=50000, batch_size=32,
-                 gamma=0.99, initial_epsilon=0.1, final_epsilon=0.0001,
-                 teacher_update_freq=5, report_interval=10,
+                 gamma=0.99, initial_epsilon=0.1, final_epsilon=0.01,
+                 learning_rate=1e-3, teacher_update_freq=5, report_interval=10,
                  log_dir="", file_name=""):
         super().__init__(buffer_size, batch_size, gamma,
                          report_interval, log_dir)
         self.file_name = file_name if file_name else "dqn_agent.h5"
         self.initial_epsilon = initial_epsilon
         self.final_epsilon = final_epsilon
+        self.learning_rate = learning_rate
         self.teacher_update_freq = teacher_update_freq
         self.training_count = 0
         self.training_episode = 0
@@ -158,7 +140,7 @@ class DeepQNetworkTrainer(Trainer):
         self.loss = 0
 
     def buffer_full(self, episode, agent):
-        optimizer = K.optimizers.Adam(clipvalue=1.0)
+        optimizer = K.optimizers.Adam(lr=self.learning_rate, clipnorm=10)
         agent.initialize(self.experiences, optimizer)
         self.callback.set_model(agent.model)
         self.training_episode -= episode
@@ -170,7 +152,7 @@ class DeepQNetworkTrainer(Trainer):
             self.loss += agent.update(batch, self.gamma)
 
     def episode_end(self, episode, step_count, agent):
-        reward = sum([e.r for e in self.experiences[-step_count:]])
+        reward = sum([e.r for e in self.get_recent(step_count)])
         self.loss = self.loss / step_count
         self.reward_log.append(reward)
         if agent.initialized:
@@ -201,6 +183,9 @@ class DeepQNetworkTrainer(Trainer):
 
 
 def main(play, is_test):
+    trainer = DeepQNetworkTrainer(file_name="dqn_agent.h5")
+    path = trainer.make_path(trainer.file_name)
+
     episode_count = 2000
     if is_test:
         print("Train on test mode")
@@ -208,10 +193,9 @@ def main(play, is_test):
         episode_count = 3000
     else:
         env = gym.make("Catcher-v0")
-        obs = Observer(env, 80, 80, 4)
+        obs = CatcherObserver(env, 80, 80, 4)
+        trainer.learning_rate = 1e-4
 
-    trainer = DeepQNetworkTrainer(file_name="dqn_agent.h5")
-    path = trainer.make_path(trainer.file_name)
     if play:
         agent = DeepQNetworkAgent.load(obs, path)
         agent.play(obs, render=True)

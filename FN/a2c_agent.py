@@ -1,5 +1,6 @@
-import argparse
 import random
+import argparse
+from collections import deque
 import numpy as np
 import tensorflow as tf
 from tensorflow.python import keras as K
@@ -7,7 +8,7 @@ from sklearn.preprocessing import StandardScaler
 from PIL import Image
 import gym
 import gym_ple
-from fn_framework import FNAgent, Trainer, Experience
+from fn_framework import FNAgent, Trainer, Observer, Experience
 
 
 class ActorCriticAgent(FNAgent):
@@ -19,7 +20,6 @@ class ActorCriticAgent(FNAgent):
         self.estimate_probs = True
 
     def initialize(self, experiences, optimizer):
-        feature_shape = experiences[0].s.shape
         feature_shape = experiences[0].s.shape
         if self.test_mode:
             self.make_test_model(feature_shape)
@@ -43,9 +43,8 @@ class ActorCriticAgent(FNAgent):
             64, kernel_size=3, strides=1, padding="same",
             kernel_initializer="normal",
             activation="relu"))
-        model.add(K.layers.BatchNormalization())
         model.add(K.layers.Flatten())
-        model.add(K.layers.Dense(512, kernel_initializer="normal",
+        model.add(K.layers.Dense(256, kernel_initializer="normal",
                                  activation="relu"))
 
         actor_layer = K.layers.Dense(len(self.actions), activation="softmax")
@@ -72,7 +71,7 @@ class ActorCriticAgent(FNAgent):
                              outputs=[action_probs, values])
 
     def set_updater(self, optimizer,
-                    value_loss_weight=0.8, entropy_weight=0.01):
+                    value_loss_weight=0.5, entropy_weight=0.01):
         actions = tf.placeholder(shape=(None), dtype="int32")
         rewards = tf.placeholder(shape=(None), dtype="float32")
 
@@ -118,30 +117,14 @@ class ActorCriticAgent(FNAgent):
         return self._updater([states, actions, rewards])
 
 
-class Observer():
+class CatcherObserver(Observer):
 
     def __init__(self, env, width, height, frame_count):
-        self._env = env
+        super().__init__(env)
         self.width = width
         self.height = height
         self.frame_count = frame_count
-        self._frames = []
-
-    @property
-    def action_space(self):
-        return self._env.action_space
-
-    def reset(self):
-        return self.transform(self._env.reset())
-
-    def render(self):
-        self._env.render()
-
-    def step(self, action, skip=0):
-        for i in range(skip + 1):
-            n_state, reward, done, info = self._env.step(action)
-            n_state = self.transform(n_state)
-        return n_state, reward, done, info
+        self._frames = deque(maxlen=frame_count)
 
     def transform(self, state):
         grayed = Image.fromarray(state).convert("L")
@@ -149,50 +132,56 @@ class Observer():
         resized = np.array(resized).astype("float")
         normalized = resized / 255  # scale to 0~1
         if len(self._frames) == 0:
-            self._frames = [normalized] * self.frame_count
+            for i in range(self.frame_count):
+                self._frames.append(normalized)
         else:
             self._frames.append(normalized)
-            self._frames.pop(0)
-
         feature = np.array(self._frames)
         # Convert the feature shape (f, w, h) => (w, h, f)
         feature = np.transpose(feature, (1, 2, 0))
+
         return feature
 
 
 class ActorCriticTrainer(Trainer):
 
     def __init__(self, buffer_size=50000, batch_size=32,
-                 gamma=0.99, initial_epsilon=0.1, final_epsilon=0.0001,
-                 teacher_update_freq=5, report_interval=10,
+                 gamma=0.99, initial_epsilon=0.2, final_epsilon=1e-3,
+                 learning_rate=1e-3, report_interval=10,
                  log_dir="", file_name=""):
         super().__init__(buffer_size, batch_size, gamma,
                          report_interval, log_dir)
         self.file_name = file_name if file_name else "a2c_agent.h5"
         self.initial_epsilon = initial_epsilon
         self.final_epsilon = final_epsilon
+        self.learning_rate = learning_rate
         self.training_count = 0
         self.training_episode = 0
         self.d_experiences = []
         self.loss = 0
         self.callback = K.callbacks.TensorBoard(self.log_dir)
+        self.optimizer = K.optimizers.Adam(lr=learning_rate)
 
     def train(self, env, episode_count=2000, render=False, test_mode=False):
         actions = list(range(env.action_space.n))
         self.training_count = 0
         self.training_episode = episode_count
         agent = ActorCriticAgent(1.0, actions, test_mode)
-
+        if not test_mode:
+            self.optimizer = K.optimizers.RMSprop(lr=self.learning_rate,
+                                                  decay=0.99, epsilon=1e-5,
+                                                  clipnorm=0.5)
         self.train_loop(env, agent, episode_count, render)
         agent.save(self.make_path(self.file_name))
         return agent
 
     def episode_begin(self, episode, agent):
         self.loss = 0
+        self.experiences = []
 
     def step(self, episode, step_count, agent, experience):
         if agent.initialized:
-            self.loss += agent.update(*self.make_batch())
+            self.loss += agent.update(*self.make_batch())[0]
 
     def make_batch(self):
         batch = random.sample(self.d_experiences, self.batch_size)
@@ -220,19 +209,16 @@ class ActorCriticTrainer(Trainer):
             d_e = Experience(s, a, d_r, n_s, d)
             self.d_experiences.append(d_e)
 
-        self.experiences = []
-
         if len(self.d_experiences) > self.buffer_size:
             self.d_experiences = self.d_experiences[-self.buffer_size:]
             if not agent.initialized:
-                optimizer = K.optimizers.Adam(clipvalue=1.0)
-                agent.initialize(self.d_experiences, optimizer)
+                agent.initialize(self.d_experiences, self.optimizer)
                 self.callback.set_model(agent.model)
                 self._reward_scaler = StandardScaler()
                 rewards = np.array([[e.r] for e in self.d_experiences])
                 self._reward_scaler.fit(rewards)
                 agent.epsilon = self.initial_epsilon
-                self.training_episode -= episode_count
+                self.training_episode -= episode
             else:
                 loss = self.loss / step_count
                 self.write_log(self.training_count, loss, sum(rewards))
@@ -260,6 +246,9 @@ class ActorCriticTrainer(Trainer):
 
 
 def main(play, is_test):
+    trainer = ActorCriticTrainer(file_name="a2c_agent.h5")
+    path = trainer.make_path(trainer.file_name)
+
     episode_count = 2000
     if is_test:
         print("Train on test mode")
@@ -267,10 +256,8 @@ def main(play, is_test):
         episode_count = 3000
     else:
         env = gym.make("Catcher-v0")
-        obs = Observer(env, 80, 80, 4)
-
-    trainer = ActorCriticTrainer(file_name="a2c_agent.h5")
-    path = trainer.make_path(trainer.file_name)
+        obs = CatcherObserver(env, 80, 80, 4)
+        trainer.learning_rate = 7e-4
 
     if play:
         agent = ActorCriticAgent.load(env, path)

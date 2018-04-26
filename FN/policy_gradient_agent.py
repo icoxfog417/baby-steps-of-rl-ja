@@ -101,6 +101,9 @@ class PolicyGradientTrainer(Trainer):
         self.train_loop(env, agent, episode_count, render)
         return agent
 
+    def episode_begin(self, episode, agent):
+        self.experiences = []
+
     def step(self, episode, step_count, agent, experience):
         if agent.initialized:
             agent.update(*self.make_batch())
@@ -130,8 +133,6 @@ class PolicyGradientTrainer(Trainer):
             d_r = discounteds[i]
             d_e = Experience(s, a, d_r, n_s, d)
             self.d_experiences.append(d_e)
-
-        self.experiences = []
 
         if len(self.d_experiences) > self.buffer_size:
             self.d_experiences = self.d_experiences[-self.buffer_size:]
