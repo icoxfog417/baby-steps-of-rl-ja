@@ -1,13 +1,14 @@
 import os
 import argparse
 import random
+from collections import deque
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.externals import joblib
 import tensorflow as tf
 from tensorflow.python import keras as K
 import gym
-from fn_framework import FNAgent, Trainer, Experience
+from fn_framework import FNAgent, Trainer, Observer, Experience
 
 
 class PolicyGradientAgent(FNAgent):
@@ -18,15 +19,15 @@ class PolicyGradientAgent(FNAgent):
         self.scaler = None
         self._updater = None
 
+    def save(self, model_path):
+        super().save(model_path)
+        joblib.dump(self.scaler, self.scaler_path(model_path))
+
     @classmethod
     def load(cls, env, model_path, epsilon=0.0001):
         agent = super().load(env, model_path, epsilon)
         agent.scaler = joblib.load(agent.scaler_path(model_path))
         return agent
-
-    def save(self, model_path):
-        super().save(model_path)
-        joblib.dump(self.scaler, self.scaler_path(model_path))
 
     def scaler_path(self, model_path):
         fname, _ = os.path.splitext(model_path)
@@ -35,10 +36,10 @@ class PolicyGradientAgent(FNAgent):
 
     def initialize(self, experiences, optimizer):
         self.scaler = StandardScaler()
-        features = np.vstack([self.to_feature(e.s) for e in experiences])
-        self.scaler.fit(features)
+        states = np.vstack([e.s for e in experiences])
+        self.scaler.fit(states)
 
-        feature_size = features.shape[1]
+        feature_size = states.shape[1]
         self.model = K.models.Sequential([
             K.layers.Dense(10, activation="relu", input_shape=(feature_size,)),
             K.layers.Dense(10, activation="relu"),
@@ -68,21 +69,21 @@ class PolicyGradientAgent(FNAgent):
                                         updates=updates)
 
     def estimate(self, s):
-        feature = self.to_feature(s)
-        feature = self.scaler.transform(feature)
-        action_probs = self.model.predict(feature)[0]
+        normalized = self.scaler.transform(s)
+        action_probs = self.model.predict(normalized)[0]
         return action_probs
 
-    def to_feature(self, s):
-        feature = np.array(s).reshape((1, -1))
-        return feature
-
     def update(self, states, actions, rewards):
-        _states = np.vstack([self.to_feature(s) for s in states])
-        _states = self.scaler.transform(_states)
+        normalizeds = self.scaler.transform(states)
         actions = np.array(actions)
         rewards = np.array(rewards)
-        self._updater([_states, actions, rewards])
+        self._updater([normalizeds, actions, rewards])
+
+
+class CartPoleObserver(Observer):
+
+    def transform(self, state):
+        return np.array(state).reshape((1, -1))
 
 
 class PolicyGradientTrainer(Trainer):
@@ -92,7 +93,7 @@ class PolicyGradientTrainer(Trainer):
         super().__init__(buffer_size, batch_size, gamma,
                          report_interval, log_dir)
         self._reward_scaler = None
-        self.d_experiences = []
+        self.d_experiences = deque(maxlen=buffer_size)
 
     def train(self, env, episode_count=220, epsilon=0.1, render=False):
         actions = list(range(env.action_space.n))
@@ -110,7 +111,7 @@ class PolicyGradientTrainer(Trainer):
 
     def make_batch(self):
         batch = random.sample(self.d_experiences, self.batch_size)
-        states = [e.s for e in batch]
+        states = np.vstack([e.s for e in batch])
         actions = [e.a for e in batch]
         rewards = [e.r for e in batch]
         rewards = np.array(rewards).reshape((-1, 1))

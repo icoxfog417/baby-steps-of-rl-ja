@@ -27,8 +27,8 @@ class ValueFunctionAgent(FNAgent):
         estimator = MLPRegressor(hidden_layer_sizes=(10, 10), max_iter=1)
         self.model = Pipeline([("scaler", scaler), ("estimator", estimator)])
 
-        features = np.vstack([e.s for e in experiences])
-        self.model.named_steps["scaler"].fit(features)
+        states = np.vstack([e.s for e in experiences])
+        self.model.named_steps["scaler"].fit(states)
 
         # Avoid the predict before fit. Use a little sample to fit.
         self.update([experiences[0]], gamma=0)

@@ -157,7 +157,7 @@ class ActorCriticTrainer(Trainer):
         self.learning_rate = learning_rate
         self.training_count = 0
         self.training_episode = 0
-        self.d_experiences = []
+        self.d_experiences = deque(maxlen=self.buffer_size)
         self.loss = 0
         self.callback = K.callbacks.TensorBoard(self.log_dir)
         self.optimizer = K.optimizers.Adam(lr=learning_rate)
@@ -209,26 +209,26 @@ class ActorCriticTrainer(Trainer):
             d_e = Experience(s, a, d_r, n_s, d)
             self.d_experiences.append(d_e)
 
-        if len(self.d_experiences) > self.buffer_size:
-            self.d_experiences = self.d_experiences[-self.buffer_size:]
-            if not agent.initialized:
-                agent.initialize(self.d_experiences, self.optimizer)
-                self.callback.set_model(agent.model)
-                self._reward_scaler = StandardScaler()
-                rewards = np.array([[e.r] for e in self.d_experiences])
-                self._reward_scaler.fit(rewards)
-                agent.epsilon = self.initial_epsilon
-                self.training_episode -= episode
-            else:
-                loss = self.loss / step_count
-                self.write_log(self.training_count, loss, sum(rewards))
-                if self.is_event(self.training_count, self.report_interval):
-                    agent.save(self.make_path(self.file_name))
+        if self.storing and len(self.d_experiences) == self.buffer_size:
+            agent.initialize(self.d_experiences, self.optimizer)
+            self.callback.set_model(agent.model)
+            self._reward_scaler = StandardScaler()
+            rewards = np.array([[e.r] for e in self.d_experiences])
+            self._reward_scaler.fit(rewards)
+            agent.epsilon = self.initial_epsilon
+            self.training_episode -= episode
+            self.storing = False
 
-                diff = (self.initial_epsilon - self.final_epsilon)
-                decay = diff / self.training_episode
-                agent.epsilon = max(agent.epsilon - decay, self.final_epsilon)
-                self.training_count += 1
+        if not self.storing and agent.initialized:
+            loss = self.loss / step_count
+            self.write_log(self.training_count, loss, sum(rewards))
+            if self.is_event(self.training_count, self.report_interval):
+                agent.save(self.make_path(self.file_name))
+
+            diff = (self.initial_epsilon - self.final_epsilon)
+            decay = diff / self.training_episode
+            agent.epsilon = max(agent.epsilon - decay, self.final_epsilon)
+            self.training_count += 1
 
         if self.is_event(episode, self.report_interval):
             recent_rewards = self.reward_log[-self.report_interval:]
