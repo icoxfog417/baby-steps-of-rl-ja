@@ -43,14 +43,14 @@ class ActorCriticAgent(FNAgent):
             64, kernel_size=3, strides=1, padding="same",
             kernel_initializer="normal",
             activation="relu"))
+        model.add(K.layers.BatchNormalization())
         model.add(K.layers.Flatten())
-        model.add(K.layers.Dense(256, kernel_initializer="normal",
-                                 activation="relu"))
+        model.add(K.layers.Dense(256, activation="tanh"))
 
         actor_layer = K.layers.Dense(len(self.actions), activation="softmax")
         action_probs = actor_layer(model.output)
 
-        critic_layer = K.layers.Dense(1, activation="tanh")
+        critic_layer = K.layers.Dense(1)
         values = critic_layer(model.output)
 
         self.model = K.Model(inputs=model.input,
@@ -130,7 +130,7 @@ class CatcherObserver(Observer):
         grayed = Image.fromarray(state).convert("L")
         resized = grayed.resize((self.width, self.height))
         resized = np.array(resized).astype("float")
-        normalized = resized / 255  # scale to 0~1
+        normalized = resized / 255.0  # scale to 0~1
         if len(self._frames) == 0:
             for i in range(self.frame_count):
                 self._frames.append(normalized)
@@ -146,7 +146,7 @@ class CatcherObserver(Observer):
 class ActorCriticTrainer(Trainer):
 
     def __init__(self, buffer_size=50000, batch_size=32,
-                 gamma=0.99, initial_epsilon=0.2, final_epsilon=1e-3,
+                 gamma=0.99, initial_epsilon=0.1, final_epsilon=1e-3,
                  learning_rate=1e-3, report_interval=10,
                  log_dir="", file_name=""):
         super().__init__(buffer_size, batch_size, gamma,
@@ -160,17 +160,12 @@ class ActorCriticTrainer(Trainer):
         self.d_experiences = deque(maxlen=self.buffer_size)
         self.loss = 0
         self.callback = K.callbacks.TensorBoard(self.log_dir)
-        self.optimizer = K.optimizers.Adam(lr=learning_rate)
 
-    def train(self, env, episode_count=2000, render=False, test_mode=False):
+    def train(self, env, episode_count=3000, render=False, test_mode=False):
         actions = list(range(env.action_space.n))
         self.training_count = 0
         self.training_episode = episode_count
         agent = ActorCriticAgent(1.0, actions, test_mode)
-        if not test_mode:
-            self.optimizer = K.optimizers.RMSprop(lr=self.learning_rate,
-                                                  decay=0.99, epsilon=1e-5,
-                                                  clipnorm=0.5)
         self.train_loop(env, agent, episode_count, render)
         agent.save(self.make_path(self.file_name))
         return agent
@@ -210,7 +205,8 @@ class ActorCriticTrainer(Trainer):
             self.d_experiences.append(d_e)
 
         if self.storing and len(self.d_experiences) == self.buffer_size:
-            agent.initialize(self.d_experiences, self.optimizer)
+            optimizer = K.optimizers.Adam(lr=self.learning_rate, clipvalue=1.0)
+            agent.initialize(self.d_experiences, optimizer)
             self.callback.set_model(agent.model)
             self._reward_scaler = StandardScaler()
             rewards = np.array([[e.r] for e in self.d_experiences])
@@ -249,21 +245,20 @@ def main(play, is_test):
     trainer = ActorCriticTrainer(file_name="a2c_agent.h5")
     path = trainer.make_path(trainer.file_name)
 
-    episode_count = 2000
     if is_test:
         print("Train on test mode")
         obs = gym.make("CartPole-v0")
-        episode_count = 3000
     else:
         env = gym.make("Catcher-v0")
         obs = CatcherObserver(env, 80, 80, 4)
-        trainer.learning_rate = 7e-4
+        trainer.learning_rate = 5e-4
+        trainer.epsilon = 0.5
 
     if play:
         agent = ActorCriticAgent.load(env, path)
         agent.play(obs, render=True)
     else:
-        trainer.train(obs, episode_count=episode_count, test_mode=is_test)
+        trainer.train(obs, test_mode=is_test)
 
 
 if __name__ == "__main__":

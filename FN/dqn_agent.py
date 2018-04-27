@@ -95,7 +95,7 @@ class CatcherObserver(Observer):
         grayed = Image.fromarray(state).convert("L")
         resized = grayed.resize((self.width, self.height))
         resized = np.array(resized).astype("float")
-        normalized = resized / 255  # scale to 0~1
+        normalized = resized / 255.0  # scale to 0~1
         if len(self._frames) == 0:
             for i in range(self.frame_count):
                 self._frames.append(normalized)
@@ -111,7 +111,7 @@ class CatcherObserver(Observer):
 class DeepQNetworkTrainer(Trainer):
 
     def __init__(self, buffer_size=50000, batch_size=32,
-                 gamma=0.99, initial_epsilon=0.1, final_epsilon=0.01,
+                 gamma=0.99, initial_epsilon=0.1, final_epsilon=1e-3,
                  learning_rate=1e-3, teacher_update_freq=5, report_interval=10,
                  log_dir="", file_name=""):
         super().__init__(buffer_size, batch_size, gamma,
@@ -126,7 +126,7 @@ class DeepQNetworkTrainer(Trainer):
         self.loss = 0
         self.callback = K.callbacks.TensorBoard(self.log_dir)
 
-    def train(self, env, episode_count=2000, render=False, test_mode=False):
+    def train(self, env, episode_count=3000, render=False, test_mode=False):
         actions = list(range(env.action_space.n))
         agent = DeepQNetworkAgent(1.0, actions, test_mode)
         self.training_count = 0
@@ -140,7 +140,7 @@ class DeepQNetworkTrainer(Trainer):
         self.loss = 0
 
     def buffer_full(self, episode, agent):
-        optimizer = K.optimizers.Adam(lr=self.learning_rate, clipnorm=10)
+        optimizer = K.optimizers.Adam(lr=self.learning_rate)
         agent.initialize(self.experiences, optimizer)
         self.callback.set_model(agent.model)
         self.training_episode -= episode
@@ -186,21 +186,20 @@ def main(play, is_test):
     trainer = DeepQNetworkTrainer(file_name="dqn_agent.h5")
     path = trainer.make_path(trainer.file_name)
 
-    episode_count = 2000
     if is_test:
         print("Train on test mode")
         obs = gym.make("CartPole-v0")
-        episode_count = 3000
     else:
         env = gym.make("Catcher-v0")
         obs = CatcherObserver(env, 80, 80, 4)
-        trainer.learning_rate = 1e-4
+        trainer.learning_rate = 5e-4
+        trainer.initial_epsilon = 0.5
 
     if play:
         agent = DeepQNetworkAgent.load(obs, path)
         agent.play(obs, render=True)
     else:
-        trainer.train(obs, episode_count=episode_count, test_mode=is_test)
+        trainer.train(obs, test_mode=is_test)
 
 
 if __name__ == "__main__":
