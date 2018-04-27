@@ -209,8 +209,7 @@ class ActorCriticTrainer(Trainer):
             self.d_experiences.append(d_e)
 
         if self.storing and len(self.d_experiences) >= self.buffer_size:
-            optimizer = K.optimizers.Adam(lr=self.learning_rate, clipvalue=1.0)
-            agent.initialize(self.d_experiences, optimizer)
+            agent.initialize(self.d_experiences, self.optimizer)
             self.callback.set_model(agent.model)
             self._reward_scaler = StandardScaler()
             d_rewards = np.array([[e.r] for e in self.d_experiences])
