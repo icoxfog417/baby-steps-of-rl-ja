@@ -43,9 +43,9 @@ class ActorCriticAgent(FNAgent):
             64, kernel_size=3, strides=1, padding="same",
             kernel_initializer="normal",
             activation="relu"))
-        model.add(K.layers.BatchNormalization())
         model.add(K.layers.Flatten())
-        model.add(K.layers.Dense(256, activation="tanh"))
+        model.add(K.layers.Dense(256, activation="relu"))
+        model.add(K.layers.BatchNormalization())
 
         actor_layer = K.layers.Dense(len(self.actions), activation="softmax")
         action_probs = actor_layer(model.output)
@@ -111,6 +111,8 @@ class ActorCriticAgent(FNAgent):
 
     def estimate(self, state):
         action_probs, values = self.model.predict(np.array([state]))
+        print(action_probs)
+        print(values)
         return action_probs[0]
 
     def update(self, states, actions, rewards):
@@ -145,7 +147,7 @@ class CatcherObserver(Observer):
 
 class ActorCriticTrainer(Trainer):
 
-    def __init__(self, buffer_size=50000, batch_size=32,
+    def __init__(self, buffer_size=500, batch_size=32,
                  gamma=0.99, initial_epsilon=0.1, final_epsilon=1e-3,
                  learning_rate=1e-3, report_interval=10,
                  log_dir="", file_name=""):
