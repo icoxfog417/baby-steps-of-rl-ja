@@ -160,12 +160,16 @@ class ActorCriticTrainer(Trainer):
         self.d_experiences = deque(maxlen=self.buffer_size)
         self.loss = 0
         self.callback = K.callbacks.TensorBoard(self.log_dir)
+        self.optimizer = K.optimizers.Adam(lr=learning_rate, clipvalue=1.0)
 
     def train(self, env, episode_count=3000, render=False, test_mode=False):
         actions = list(range(env.action_space.n))
         self.training_count = 0
         self.training_episode = episode_count
         agent = ActorCriticAgent(1.0, actions, test_mode)
+        if not test_mode:
+            self.optimizer = K.optimizers.RMSprop(lr=self.learning_rate,
+                                                  decay=0.99, epsilon=1e-5)
         self.train_loop(env, agent, episode_count, render)
         agent.save(self.make_path(self.file_name))
         return agent
@@ -251,7 +255,7 @@ def main(play, is_test):
     else:
         env = gym.make("Catcher-v0")
         obs = CatcherObserver(env, 80, 80, 4)
-        trainer.learning_rate = 5e-4
+        trainer.learning_rate = 7e-4
         trainer.epsilon = 0.5
 
     if play:
