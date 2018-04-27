@@ -192,8 +192,8 @@ def main(play, is_test):
     else:
         env = gym.make("Catcher-v0")
         obs = CatcherObserver(env, 80, 80, 4)
-        trainer.learning_rate = 7e-4
-        trainer.initial_epsilon = 0.5
+        trainer.learning_rate = 9e-4
+        trainer.initial_epsilon = 0.2
 
     if play:
         agent = DeepQNetworkAgent.load(obs, path)
