@@ -204,13 +204,13 @@ class ActorCriticTrainer(Trainer):
             d_e = Experience(s, a, d_r, n_s, d)
             self.d_experiences.append(d_e)
 
-        if self.storing and len(self.d_experiences) == self.buffer_size:
+        if self.storing and len(self.d_experiences) >= self.buffer_size:
             optimizer = K.optimizers.Adam(lr=self.learning_rate, clipvalue=1.0)
             agent.initialize(self.d_experiences, optimizer)
             self.callback.set_model(agent.model)
             self._reward_scaler = StandardScaler()
-            rewards = np.array([[e.r] for e in self.d_experiences])
-            self._reward_scaler.fit(rewards)
+            d_rewards = np.array([[e.r] for e in self.d_experiences])
+            self._reward_scaler.fit(d_rewards)
             agent.epsilon = self.initial_epsilon
             self.training_episode -= episode
             self.storing = False
