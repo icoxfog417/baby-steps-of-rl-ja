@@ -255,7 +255,7 @@ def main(play, is_test):
         env = gym.make("Catcher-v0")
         obs = CatcherObserver(env, 80, 80, 4)
         trainer.learning_rate = 7e-4
-        trainer.epsilon = 0.5
+        trainer.epsilon = 0.75
 
     if play:
         agent = ActorCriticAgent.load(env, path)
