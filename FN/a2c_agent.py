@@ -111,8 +111,6 @@ class ActorCriticAgent(FNAgent):
 
     def estimate(self, state):
         action_probs, values = self.model.predict(np.array([state]))
-        print(action_probs)
-        print(values)
         return action_probs[0]
 
     def update(self, states, actions, rewards):
