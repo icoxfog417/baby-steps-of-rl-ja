@@ -94,13 +94,11 @@ class PolicyGradientTrainer(Trainer):
                          report_interval, log_dir)
         self._reward_scaler = None
         self.d_experiences = deque(maxlen=buffer_size)
-        self.initial_count = -1
 
     def train(self, env, episode_count=220, epsilon=0.1, initial_count=-1,
               render=False):
         actions = list(range(env.action_space.n))
         agent = PolicyGradientAgent(epsilon, actions)
-        self.initial_count = initial_count
 
         self.train_loop(env, agent, episode_count, initial_count, render)
         return agent

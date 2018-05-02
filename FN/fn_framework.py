@@ -22,7 +22,7 @@ class FNAgent():
         self.initialized = False
 
     def save(self, model_path):
-        self.model.save(model_path, overwrite=True)
+        self.model.save(model_path, overwrite=True, include_optimizer=False)
 
     @classmethod
     def load(cls, env, model_path, epsilon=0.0001):
@@ -197,6 +197,9 @@ class Logger():
     def writer(self):
         return self._callback.writer
 
+    def set_model(self, model):
+        self._callback.set_model(model)
+
     def path_of(self, file_name):
         return os.path.join(self.log_dir, file_name)
 
@@ -229,7 +232,7 @@ class Logger():
         plt.legend(loc="best")
         plt.show()
 
-    def write_log(self, index, name, value):
+    def write(self, index, name, value):
         summary = tf.Summary()
         summary_value = summary.value.add()
         summary_value.tag = name

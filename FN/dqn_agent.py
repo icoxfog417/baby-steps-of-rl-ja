@@ -5,6 +5,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python import keras as K
 from tensorflow.python.keras._impl.keras.models import clone_model
+from sklearn.preprocessing import StandardScaler
 from PIL import Image
 import gym
 import gym_ple
@@ -13,49 +14,38 @@ from fn_framework import FNAgent, Trainer, Observer
 
 class DeepQNetworkAgent(FNAgent):
 
-    def __init__(self, epsilon, actions, test_mode=False):
+    def __init__(self, epsilon, actions):
         super().__init__(epsilon, actions)
-        self.test_mode = test_mode
+        self._scaler = None
         self._teacher_model = None
 
     def initialize(self, experiences, optimizer):
         feature_shape = experiences[0].s.shape
-        if self.test_mode:
-            self.make_test_model(feature_shape)
-            self.model.compile(optimizer, loss="mse")
-        else:
-            self.make_model(feature_shape)
-            self.model.compile(optimizer, loss=tf.losses.huber_loss)
+        self.make_model(feature_shape)
+        self.model.compile(optimizer, loss="mse")
         self.initialized = True
         print("Done initialize. From now, begin training!")
 
     def make_model(self, feature_shape):
+        normal = K.initializers.glorot_normal()
         model = K.Sequential()
         model.add(K.layers.Conv2D(
             32, kernel_size=8, strides=4, padding="same",
-            input_shape=feature_shape, kernel_initializer="normal",
+            input_shape=feature_shape, kernel_initializer=normal,
             activation="relu"))
         model.add(K.layers.Conv2D(
             64, kernel_size=4, strides=2, padding="same",
-            kernel_initializer="normal",
+            kernel_initializer=normal,
             activation="relu"))
         model.add(K.layers.Conv2D(
             64, kernel_size=3, strides=1, padding="same",
-            kernel_initializer="normal",
+            kernel_initializer=normal,
             activation="relu"))
         model.add(K.layers.Flatten())
-        model.add(K.layers.Dense(256, kernel_initializer="normal",
+        model.add(K.layers.Dense(256, kernel_initializer=normal,
                                  activation="relu"))
         model.add(K.layers.Dense(len(self.actions),
-                                 kernel_initializer="normal"))
-        self.model = model
-        self._teacher_model = clone_model(self.model)
-
-    def make_test_model(self, feature_shape):
-        model = K.Sequential()
-        model.add(K.layers.Dense(64, input_shape=feature_shape,
-                                 activation="relu"))
-        model.add(K.layers.Dense(len(self.actions), activation="relu"))
+                                 kernel_initializer=normal))
         self.model = model
         self._teacher_model = clone_model(self.model)
 
@@ -80,6 +70,22 @@ class DeepQNetworkAgent(FNAgent):
 
     def update_teacher(self):
         self._teacher_model.set_weights(self.model.get_weights())
+
+
+class DeepQNetworkAgentTest(DeepQNetworkAgent):
+
+    def __init__(self, epsilon, actions):
+        super().__init__(epsilon, actions)
+
+    def make_model(self, feature_shape):
+        normal = K.initializers.glorot_normal()
+        model = K.Sequential()
+        model.add(K.layers.Dense(64, input_shape=feature_shape,
+                                 kernel_initializer=normal, activation="relu"))
+        model.add(K.layers.Dense(len(self.actions), kernel_initializer=normal,
+                                 activation="relu"))
+        self.model = model
+        self._teacher_model = clone_model(self.model)
 
 
 class CatcherObserver(Observer):
@@ -111,8 +117,8 @@ class CatcherObserver(Observer):
 class DeepQNetworkTrainer(Trainer):
 
     def __init__(self, buffer_size=50000, batch_size=32,
-                 gamma=0.99, initial_epsilon=0.1, final_epsilon=1e-3,
-                 learning_rate=1e-3, teacher_update_freq=5, report_interval=10,
+                 gamma=0.99, initial_epsilon=0.5, final_epsilon=1e-3,
+                 learning_rate=1e-3, teacher_update_freq=3, report_interval=10,
                  log_dir="", file_name=""):
         super().__init__(buffer_size, batch_size, gamma,
                          report_interval, log_dir)
@@ -121,33 +127,34 @@ class DeepQNetworkTrainer(Trainer):
         self.final_epsilon = final_epsilon
         self.learning_rate = learning_rate
         self.teacher_update_freq = teacher_update_freq
-        self.training_count = 0
-        self.training_episode = 0
         self.loss = 0
-        self.callback = K.callbacks.TensorBoard(self.log_dir)
+        self.training_episode = 0
 
-    def train(self, env, episode_count=3000, render=False, test_mode=False):
+    def train(self, env, episode_count=1200, initial_count=200,
+              test_mode=False, render=False):
         actions = list(range(env.action_space.n))
-        agent = DeepQNetworkAgent(1.0, actions, test_mode)
-        self.training_count = 0
+        if not test_mode:
+            agent = DeepQNetworkAgent(1.0, actions)
+        else:
+            agent = DeepQNetworkAgentTest(1.0, actions)
         self.training_episode = episode_count
 
-        self.train_loop(env, agent, episode_count, render)
-        agent.save(self.make_path(self.file_name))
+        self.train_loop(env, agent, episode_count, initial_count, render)
+        agent.save(self.logger.path_of(self.file_name))
         return agent
 
     def episode_begin(self, episode, agent):
         self.loss = 0
 
-    def buffer_full(self, episode, agent):
-        optimizer = K.optimizers.Adam(lr=self.learning_rate)
+    def begin_train(self, episode, agent):
+        optimizer = K.optimizers.Adam(lr=self.learning_rate, clipvalue=1.0)
         agent.initialize(self.experiences, optimizer)
-        self.callback.set_model(agent.model)
-        self.training_episode -= episode
+        self.logger.set_model(agent.model)
         agent.epsilon = self.initial_epsilon
+        self.training_episode -= episode
 
     def step(self, episode, step_count, agent, experience):
-        if agent.initialized:
+        if self.training:
             batch = random.sample(self.experiences, self.batch_size)
             self.loss += agent.update(batch, self.gamma)
 
@@ -155,47 +162,40 @@ class DeepQNetworkTrainer(Trainer):
         reward = sum([e.r for e in self.get_recent(step_count)])
         self.loss = self.loss / step_count
         self.reward_log.append(reward)
-        if agent.initialized:
-            self.write_log(self.training_count, self.loss, reward)
+        if self.training:
+            self.logger.write(self.training_count, "loss", self.loss)
+            self.logger.write(self.training_count, "reward", reward)
+            self.logger.write(self.training_count, "epsilon", agent.epsilon)
             if self.is_event(self.training_count, self.report_interval):
-                agent.save(self.make_path(self.file_name))
+                agent.save(self.logger.path_of(self.file_name))
             if self.is_event(self.training_count, self.teacher_update_freq):
                 agent.update_teacher()
 
             diff = (self.initial_epsilon - self.final_epsilon)
             decay = diff / self.training_episode
             agent.epsilon = max(agent.epsilon - decay, self.final_epsilon)
-            self.training_count += 1
 
         if self.is_event(episode, self.report_interval):
             recent_rewards = self.reward_log[-self.report_interval:]
-            desc = self.make_desc("reward", recent_rewards)
-            print("At episode {}, {}".format(episode, desc))
-
-    def write_log(self, index, loss, score):
-        for name, value in zip(("loss", "score"), (loss, score)):
-            summary = tf.Summary()
-            summary_value = summary.value.add()
-            summary_value.simple_value = value
-            summary_value.tag = name
-            self.callback.writer.add_summary(summary, index)
-            self.callback.writer.flush()
+            self.logger.describe("reward", recent_rewards, episode=episode)
 
 
 def main(play, is_test):
     trainer = DeepQNetworkTrainer(file_name="dqn_agent.h5")
-    path = trainer.make_path(trainer.file_name)
+    path = trainer.logger.path_of(trainer.file_name)
+    agent_class = DeepQNetworkAgent
 
     if is_test:
         print("Train on test mode")
         obs = gym.make("CartPole-v0")
+        agent_class = DeepQNetworkAgentTest
     else:
         env = gym.make("Catcher-v0")
         obs = CatcherObserver(env, 80, 80, 4)
-        trainer.initial_epsilon = 0.2
+        trainer.learning_rate = 1e-4
 
     if play:
-        agent = DeepQNetworkAgent.load(obs, path)
+        agent = agent_class.load(obs, path)
         agent.play(obs, render=True)
     else:
         trainer.train(obs, test_mode=is_test)

@@ -13,58 +13,43 @@ from fn_framework import FNAgent, Trainer, Observer, Experience
 
 class ActorCriticAgent(FNAgent):
 
-    def __init__(self, epsilon, actions, test_mode=False):
+    def __init__(self, epsilon, actions):
         super().__init__(epsilon, actions)
-        self.test_mode = test_mode
         self._updater = None
         self.estimate_probs = True
 
     def initialize(self, experiences, optimizer):
         feature_shape = experiences[0].s.shape
-        if self.test_mode:
-            self.make_test_model(feature_shape)
-        else:
-            self.make_model(feature_shape)
+        self.make_model(feature_shape)
         self.set_updater(optimizer)
         self.initialized = True
         print("Done initialize. From now, begin training!")
 
     def make_model(self, feature_shape):
+        normal = K.initializers.glorot_normal()
         model = K.Sequential()
         model.add(K.layers.Conv2D(
             32, kernel_size=8, strides=4, padding="same",
-            input_shape=feature_shape, kernel_initializer="normal",
+            input_shape=feature_shape, kernel_initializer=normal,
             activation="relu"))
         model.add(K.layers.Conv2D(
             64, kernel_size=4, strides=2, padding="same",
-            kernel_initializer="normal",
+            kernel_initializer=normal,
             activation="relu"))
         model.add(K.layers.Conv2D(
             64, kernel_size=3, strides=1, padding="same",
-            kernel_initializer="normal",
+            kernel_initializer=normal,
             activation="relu"))
         model.add(K.layers.Flatten())
-        model.add(K.layers.Dense(256, activation="relu"))
-        model.add(K.layers.BatchNormalization())
-
-        actor_layer = K.layers.Dense(len(self.actions), activation="softmax")
-        action_probs = actor_layer(model.output)
-
-        critic_layer = K.layers.Dense(1)
-        values = critic_layer(model.output)
-
-        self.model = K.Model(inputs=model.input,
-                             outputs=[action_probs, values])
-
-    def make_test_model(self, feature_shape):
-        model = K.Sequential()
-        model.add(K.layers.Dense(64, input_shape=feature_shape,
+        model.add(K.layers.Dense(256, kernel_initializer=normal,
                                  activation="relu"))
-        model.add(K.layers.Dense(64, activation="relu"))
 
-        actor_layer = K.layers.Dense(len(self.actions), activation="softmax")
+        actor_layer = K.layers.Dense(len(self.actions), activation="softmax",
+                                     kernel_initializer=normal)
         action_probs = actor_layer(model.output)
-        critic_layer = K.layers.Dense(1, activation="tanh")
+
+        critic_layer = K.layers.Dense(1, kernel_initializer=normal,
+                                      activation="tanh")
         values = critic_layer(model.output)
 
         self.model = K.Model(inputs=model.input,
@@ -95,7 +80,9 @@ class ActorCriticAgent(FNAgent):
         self._updater = K.backend.function(
                                         inputs=[self.model.input,
                                                 actions, rewards],
-                                        outputs=[loss],
+                                        outputs=[loss,
+                                                 policy_loss, value_loss,
+                                                 prob_entropy],
                                         updates=updates)
 
     def categorical_entropy(self, logits):
@@ -103,9 +90,9 @@ class ActorCriticAgent(FNAgent):
         From OpenAI A2C implementation
         https://github.com/openai/baselines/blob/master/baselines/a2c/utils.py
         """
-        a0 = logits - tf.reduce_max(logits, 1, keep_dims=True)
+        a0 = logits - tf.reduce_max(logits, 1, keepdims=True)
         ea0 = tf.exp(a0)
-        z0 = tf.reduce_sum(ea0, 1, keep_dims=True)
+        z0 = tf.reduce_sum(ea0, 1, keepdims=True)
         p0 = ea0 / z0
         return tf.reduce_sum(p0 * (tf.log(z0) - a0), 1)
 
@@ -115,6 +102,28 @@ class ActorCriticAgent(FNAgent):
 
     def update(self, states, actions, rewards):
         return self._updater([states, actions, rewards])
+
+
+class ActorCriticAgentTest(ActorCriticAgent):
+
+    def make_model(self, feature_shape):
+        normal = K.initializers.glorot_normal()
+        model = K.Sequential()
+        model.add(K.layers.Dense(64, input_shape=feature_shape,
+                                 kernel_initializer=normal, activation="relu"))
+        model.add(K.layers.Dense(64, kernel_initializer=normal,
+                                 activation="relu"))
+
+        actor_layer = K.layers.Dense(len(self.actions),
+                                     kernel_initializer=normal,
+                                     activation="softmax")
+        action_probs = actor_layer(model.output)
+        critic_layer = K.layers.Dense(1, kernel_initializer=normal,
+                                      activation="tanh")
+        values = critic_layer(model.output)
+
+        self.model = K.Model(inputs=model.input,
+                             outputs=[action_probs, values])
 
 
 class CatcherObserver(Observer):
@@ -146,8 +155,8 @@ class CatcherObserver(Observer):
 class ActorCriticTrainer(Trainer):
 
     def __init__(self, buffer_size=50000, batch_size=32,
-                 gamma=0.99, initial_epsilon=0.1, final_epsilon=1e-3,
-                 learning_rate=1e-3, report_interval=10,
+                 gamma=0.99, initial_epsilon=0.5, final_epsilon=1e-3,
+                 learning_rate=1e-4, report_interval=10,
                  log_dir="", file_name=""):
         super().__init__(buffer_size, batch_size, gamma,
                          report_interval, log_dir)
@@ -155,32 +164,36 @@ class ActorCriticTrainer(Trainer):
         self.initial_epsilon = initial_epsilon
         self.final_epsilon = final_epsilon
         self.learning_rate = learning_rate
-        self.training_count = 0
-        self.training_episode = 0
         self.d_experiences = deque(maxlen=self.buffer_size)
-        self.loss = 0
-        self.callback = K.callbacks.TensorBoard(self.log_dir)
-        self.optimizer = K.optimizers.Adam(lr=learning_rate, clipvalue=1.0)
+        self._reward_scaler = None
+        self.training_episode = 0
+        self.losses = {}
 
-    def train(self, env, episode_count=3000, render=False, test_mode=False):
+    def train(self, env, episode_count=1200, initial_count=200,
+              test_mode=False, render=False):
         actions = list(range(env.action_space.n))
-        self.training_count = 0
-        self.training_episode = episode_count
-        agent = ActorCriticAgent(1.0, actions, test_mode)
         if not test_mode:
-            self.optimizer = K.optimizers.RMSprop(lr=self.learning_rate,
-                                                  decay=0.99, epsilon=1e-5)
-        self.train_loop(env, agent, episode_count, render)
-        agent.save(self.make_path(self.file_name))
+            agent = ActorCriticAgent(1.0, actions)
+        else:
+            agent = ActorCriticAgentTest(1.0, actions)
+        self.training_episode = episode_count
+
+        self.train_loop(env, agent, episode_count, initial_count, render)
+        agent.save(self.logger.path_of(self.file_name))
         return agent
 
     def episode_begin(self, episode, agent):
-        self.loss = 0
+        self.losses = {"loss": [], "loss_policy": [], "loss_value": [],
+                       "entropy": []}
         self.experiences = []
 
     def step(self, episode, step_count, agent, experience):
-        if agent.initialized:
-            self.loss += agent.update(*self.make_batch())[0]
+        if self.training:
+            loss, pl, vl, en = agent.update(*self.make_batch())
+            self.losses["loss"].append(loss)
+            self.losses["loss_policy"].append(pl)
+            self.losses["loss_value"].append(vl)
+            self.losses["entropy"].append(en)
 
     def make_batch(self):
         batch = random.sample(self.d_experiences, self.batch_size)
@@ -190,6 +203,16 @@ class ActorCriticTrainer(Trainer):
         rewards = np.array(rewards).reshape((-1, 1))
         rewards = self._reward_scaler.transform(rewards).flatten()
         return states, actions, rewards
+
+    def begin_train(self, episode, agent):
+        optimizer = K.optimizers.Adam(lr=self.learning_rate, clipvalue=10.0)
+        agent.initialize(self.experiences, optimizer)
+        self.logger.set_model(agent.model)
+        agent.epsilon = self.initial_epsilon
+        self.training_episode -= episode
+        self._reward_scaler = StandardScaler()
+        rewards = np.array([[e.r] for e in self.d_experiences])
+        self._reward_scaler.fit(rewards)
 
     def episode_end(self, episode, step_count, agent):
         rewards = [e.r for e in self.experiences]
@@ -208,57 +231,43 @@ class ActorCriticTrainer(Trainer):
             d_e = Experience(s, a, d_r, n_s, d)
             self.d_experiences.append(d_e)
 
-        if self.storing and len(self.d_experiences) >= self.buffer_size:
-            agent.initialize(self.d_experiences, self.optimizer)
-            self.callback.set_model(agent.model)
-            self._reward_scaler = StandardScaler()
-            d_rewards = np.array([[e.r] for e in self.d_experiences])
-            self._reward_scaler.fit(d_rewards)
-            agent.epsilon = self.initial_epsilon
-            self.training_episode -= episode
-            self.storing = False
+        if not self.training and len(self.d_experiences) == self.buffer_size:
+            self.begin_train(i, agent)
+            self.training = True
 
-        if not self.storing and agent.initialized:
-            loss = self.loss / step_count
-            self.write_log(self.training_count, loss, sum(rewards))
+        if self.training:
+            self.logger.write(self.training_count, "reward", sum(rewards))
+            self.logger.write(self.training_count, "epsilon", agent.epsilon)
+            for k in self.losses:
+                loss = sum(self.losses[k]) / step_count
+                self.logger.write(self.training_count, "loss/" + k, loss)
             if self.is_event(self.training_count, self.report_interval):
-                agent.save(self.make_path(self.file_name))
+                agent.save(self.logger.path_of(self.file_name))
 
             diff = (self.initial_epsilon - self.final_epsilon)
             decay = diff / self.training_episode
             agent.epsilon = max(agent.epsilon - decay, self.final_epsilon)
-            self.training_count += 1
 
         if self.is_event(episode, self.report_interval):
             recent_rewards = self.reward_log[-self.report_interval:]
-            desc = self.make_desc("reward", recent_rewards)
-            print("At episode {}, {}".format(episode, desc))
-
-    def write_log(self, index, loss, score):
-        for name, value in zip(("loss", "score"), (loss, score)):
-            summary = tf.Summary()
-            summary_value = summary.value.add()
-            summary_value.simple_value = value
-            summary_value.tag = name
-            self.callback.writer.add_summary(summary, index)
-            self.callback.writer.flush()
+            self.logger.describe("reward", recent_rewards, episode=episode)
 
 
 def main(play, is_test):
     trainer = ActorCriticTrainer(file_name="a2c_agent.h5")
-    path = trainer.make_path(trainer.file_name)
+    path = trainer.logger.path_of(trainer.file_name)
+    agent_class = ActorCriticAgent
 
     if is_test:
         print("Train on test mode")
         obs = gym.make("CartPole-v0")
+        agent_class = ActorCriticAgentTest
     else:
         env = gym.make("Catcher-v0")
         obs = CatcherObserver(env, 80, 80, 4)
-        trainer.learning_rate = 9e-4
-        trainer.epsilon = 0.2
 
     if play:
-        agent = ActorCriticAgent.load(env, path)
+        agent = agent_class.load(obs, path)
         agent.play(obs, render=True)
     else:
         trainer.train(obs, test_mode=is_test)
