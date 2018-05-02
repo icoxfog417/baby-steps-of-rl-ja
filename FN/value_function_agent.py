@@ -11,6 +11,9 @@ from fn_framework import FNAgent, Trainer, Observer
 
 class ValueFunctionAgent(FNAgent):
 
+    def save(self, model_path):
+        joblib.dump(self.model, model_path)
+
     @classmethod
     def load(cls, env, model_path, epsilon=0.0001):
         actions = list(range(env.action_space.n))
@@ -18,9 +21,6 @@ class ValueFunctionAgent(FNAgent):
         agent.model = joblib.load(model_path)
         agent.initialized = True
         return agent
-
-    def save(self, model_path):
-        joblib.dump(self.model, model_path)
 
     def initialize(self, experiences):
         scaler = StandardScaler()
@@ -74,14 +74,14 @@ class CartPoleObserver(Observer):
 
 class ValueFunctionTrainer(Trainer):
 
-    def train(self, env, episode_count=220, epsilon=0.1, render=False):
+    def train(self, env, episode_count=220, epsilon=0.1, initial_count=-1,
+              render=False):
         actions = list(range(env.action_space.n))
         agent = ValueFunctionAgent(epsilon, actions)
-
-        self.train_loop(env, agent, episode_count, render)
+        self.train_loop(env, agent, episode_count, initial_count, render)
         return agent
 
-    def buffer_full(self, episode, agent):
+    def begin_train(self, episode, agent):
         agent.initialize(self.experiences)
 
     def step(self, episode, step_count, agent, experience):
@@ -95,22 +95,21 @@ class ValueFunctionTrainer(Trainer):
 
         if self.is_event(episode, self.report_interval):
             recent_rewards = self.reward_log[-self.report_interval:]
-            desc = self.make_desc("reward", recent_rewards)
-            print("At episode {}, {}".format(episode, desc))
+            self.logger.describe("reward", recent_rewards, episode=episode)
 
 
 def main(play):
     env = CartPoleObserver(gym.make("CartPole-v0"))
     trainer = ValueFunctionTrainer()
-    path = trainer.make_path("value_function_agent.pkl")
+    path = trainer.logger.path_of("value_function_agent.pkl")
 
     if play:
         agent = ValueFunctionAgent.load(env, path)
         agent.play(env)
     else:
         trained = trainer.train(env)
-        trainer.plot_logs("Rewards", trainer.reward_log,
-                          trainer.report_interval)
+        trainer.logger.plot("Rewards", trainer.reward_log,
+                            trainer.report_interval)
         trained.save(path)
 
 

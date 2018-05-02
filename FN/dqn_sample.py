@@ -15,22 +15,23 @@ class Agent(object):
 
     def __init__(self, num_actions):
         self.num_actions = num_actions
+        normal = K.initializers.RandomNormal(stddev=0.05)
         model = K.Sequential()
         model.add(K.layers.Conv2D(
             32, kernel_size=8, strides=4, padding="same",
-            input_shape=self.INPUT_SHAPE, kernel_initializer="normal",
+            input_shape=self.INPUT_SHAPE, kernel_initializer=normal,
             activation="relu"))
         model.add(K.layers.Conv2D(
             64, kernel_size=4, strides=2, padding="same",
-            kernel_initializer="normal",
+            kernel_initializer=normal,
             activation="relu"))
         model.add(K.layers.Conv2D(
             64, kernel_size=3, strides=1, padding="same",
-            kernel_initializer="normal",
+            kernel_initializer=normal,
             activation="relu"))
         model.add(K.layers.Flatten())
-        model.add(K.layers.Dense(512, kernel_initializer="normal", activation="relu"))
-        model.add(K.layers.Dense(num_actions, kernel_initializer="normal"))
+        model.add(K.layers.Dense(512, kernel_initializer=normal, activation="relu"))
+        model.add(K.layers.Dense(num_actions, kernel_initializer=normal))
         self.model = model
 
     def evaluate(self, state, model=None):
@@ -42,6 +43,7 @@ class Agent(object):
         if np.random.rand() <= epsilon:
             a = np.random.randint(low=0, high=self.num_actions, size=1)[0]
         else:
+            print(np.mean(state))
             q = self.evaluate(state)
             a = np.argmax(q)
         return a

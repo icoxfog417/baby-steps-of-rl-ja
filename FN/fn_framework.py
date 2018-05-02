@@ -1,7 +1,9 @@
 import os
+import re
 from collections import namedtuple
 from collections import deque
 import numpy as np
+import tensorflow as tf
 from tensorflow.python import keras as K
 import matplotlib.pyplot as plt
 
@@ -20,7 +22,7 @@ class FNAgent():
         self.initialized = False
 
     def save(self, model_path):
-        self.model.save(model_path, overwrite=True, include_optimizer=False)
+        self.model.save(model_path, overwrite=True)
 
     @classmethod
     def load(cls, env, model_path, epsilon=0.0001):
@@ -75,22 +77,28 @@ class Trainer():
         self.batch_size = batch_size
         self.gamma = gamma
         self.report_interval = report_interval
-        self.log_dir = log_dir
-        if not self.log_dir:
-            self.log_dir = os.path.join(os.path.dirname(__file__), "logs")
+        self.logger = Logger(log_dir, self.trainer_name)
         self.experiences = deque(maxlen=buffer_size)
-        self.storing = True
+        self.training = False
+        self.training_count = 0
         self.reward_log = []
 
-    def make_path(self, file_name):
-        return os.path.join(self.log_dir, file_name)
+    @property
+    def trainer_name(self):
+        class_name = self.__class__.__name__
+        snaked = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", class_name)
+        snaked = re.sub("([a-z0-9])([A-Z])", r"\1_\2", snaked).lower()
+        snaked = snaked.replace("_trainer", "")
+        return snaked
 
-    def train_loop(self, env, agent, episode_count=200, render=False):
+    def train_loop(self, env, agent, episode=200, initial_count=-1,
+                   render=False):
         self.experiences = deque(maxlen=self.buffer_size)
-        self.storing = True
+        self.training = False
+        self.training_count = 0
         self.reward_log = []
 
-        for i in range(episode_count):
+        for i in range(episode):
             s = env.reset()
             done = False
             step_count = 0
@@ -102,9 +110,10 @@ class Trainer():
                 n_state, reward, done, info = env.step(a)
                 e = Experience(s, a, reward, n_state, done)
                 self.experiences.append(e)
-                if self.storing and len(self.experiences) == self.buffer_size:
-                    self.buffer_full(i, agent)
-                    self.storing = False
+                if not self.training and \
+                   len(self.experiences) == self.buffer_size:
+                    self.begin_train(i, agent)
+                    self.training = True
 
                 self.step(i, step_count, agent, e)
 
@@ -113,10 +122,18 @@ class Trainer():
             else:
                 self.episode_end(i, step_count, agent)
 
+                if not self.training and \
+                   initial_count > 0 and i >= initial_count:
+                    self.begin_train(i, agent)
+                    self.training = True
+
+                if self.training:
+                    self.training_count += 1
+
     def episode_begin(self, episode, agent):
         pass
 
-    def buffer_full(self, episode, agent):
+    def begin_train(self, episode, agent):
         pass
 
     def step(self, episode, step_count, agent, experience):
@@ -131,32 +148,6 @@ class Trainer():
     def get_recent(self, count):
         recent = range(len(self.experiences) - count, len(self.experiences))
         return [self.experiences[i] for i in recent]
-
-    def make_desc(self, name, values):
-        mean = np.round(np.mean(values), 3)
-        std = np.round(np.std(values), 3)
-        desc = "{} is {} (+/-{})".format(name, mean, std)
-        return desc
-
-    def plot_logs(self, name, values, interval=10):
-        indices = list(range(0, len(values), interval))
-        means = []
-        stds = []
-        for i in indices:
-            rewards = self.reward_log[i:(i + interval)]
-            means.append(np.mean(rewards))
-            stds.append(np.std(rewards))
-        means = np.array(means)
-        stds = np.array(stds)
-        plt.figure()
-        plt.title("{} History".format(name))
-        plt.grid()
-        plt.fill_between(indices, means - stds, means + stds,
-                         alpha=0.1, color="g")
-        plt.plot(indices, means, "o-", color="g",
-                 label="Rewards for each {} episode".format(interval))
-        plt.legend(loc="best")
-        plt.show()
 
 
 class Observer():
@@ -184,3 +175,64 @@ class Observer():
 
     def transform(self, state):
         raise Exception("You have to implements transform method")
+
+
+class Logger():
+
+    def __init__(self, log_dir="", dir_name=""):
+        self.log_dir = log_dir
+        if not log_dir:
+            self.log_dir = os.path.join(os.path.dirname(__file__), "logs")
+        if not os.path.exists(self.log_dir):
+            os.mkdir(self.log_dir)
+
+        if dir_name:
+            self.log_dir = os.path.join(self.log_dir, dir_name)
+            if not os.path.exists(self.log_dir):
+                os.mkdir(self.log_dir)
+
+        self._callback = K.callbacks.TensorBoard(self.log_dir)
+
+    @property
+    def writer(self):
+        return self._callback.writer
+
+    def path_of(self, file_name):
+        return os.path.join(self.log_dir, file_name)
+
+    def describe(self, name, values, episode=-1, step=-1):
+        mean = np.round(np.mean(values), 3)
+        std = np.round(np.std(values), 3)
+        desc = "{} is {} (+/-{})".format(name, mean, std)
+        if episode > 0:
+            print("At episode {}, {}".format(episode, desc))
+        elif step > 0:
+            print("At step {}, {}".format(step, desc))
+
+    def plot(self, name, values, interval=10):
+        indices = list(range(0, len(values), interval))
+        means = []
+        stds = []
+        for i in indices:
+            _values = values[i:(i + interval)]
+            means.append(np.mean(_values))
+            stds.append(np.std(_values))
+        means = np.array(means)
+        stds = np.array(stds)
+        plt.figure()
+        plt.title("{} History".format(name))
+        plt.grid()
+        plt.fill_between(indices, means - stds, means + stds,
+                         alpha=0.1, color="g")
+        plt.plot(indices, means, "o-", color="g",
+                 label="{} per {} episode".format(name.lower(), interval))
+        plt.legend(loc="best")
+        plt.show()
+
+    def write_log(self, index, name, value):
+        summary = tf.Summary()
+        summary_value = summary.value.add()
+        summary_value.tag = name
+        summary_value.simple_value = value
+        self.writer.add_summary(summary, index)
+        self.writer.flush()

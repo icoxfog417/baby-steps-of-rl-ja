@@ -94,12 +94,15 @@ class PolicyGradientTrainer(Trainer):
                          report_interval, log_dir)
         self._reward_scaler = None
         self.d_experiences = deque(maxlen=buffer_size)
+        self.initial_count = -1
 
-    def train(self, env, episode_count=220, epsilon=0.1, render=False):
+    def train(self, env, episode_count=220, epsilon=0.1, initial_count=-1,
+              render=False):
         actions = list(range(env.action_space.n))
         agent = PolicyGradientAgent(epsilon, actions)
+        self.initial_count = initial_count
 
-        self.train_loop(env, agent, episode_count, render)
+        self.train_loop(env, agent, episode_count, initial_count, render)
         return agent
 
     def episode_begin(self, episode, agent):
@@ -118,6 +121,13 @@ class PolicyGradientTrainer(Trainer):
         rewards = self._reward_scaler.transform(rewards).flatten()
         return states, actions, rewards
 
+    def begin_train(self, episode, agent):
+        optimizer = K.optimizers.Adam()
+        agent.initialize(self.d_experiences, optimizer)
+        self._reward_scaler = StandardScaler()
+        rewards = np.array([[e.r] for e in self.d_experiences])
+        self._reward_scaler.fit(rewards)
+
     def episode_end(self, episode, step_count, agent):
         rewards = [e.r for e in self.experiences]
         self.reward_log.append(sum(rewards))
@@ -135,33 +145,27 @@ class PolicyGradientTrainer(Trainer):
             d_e = Experience(s, a, d_r, n_s, d)
             self.d_experiences.append(d_e)
 
-        if len(self.d_experiences) > self.buffer_size:
-            self.d_experiences = self.d_experiences[-self.buffer_size:]
-            if not agent.initialized:
-                optimizer = K.optimizers.Adam()
-                agent.initialize(self.d_experiences, optimizer)
-                self._reward_scaler = StandardScaler()
-                rewards = np.array([[e.r] for e in self.d_experiences])
-                self._reward_scaler.fit(rewards)
+        if not self.training and len(self.d_experiences) == self.buffer_size:
+            self.begin_train(i, agent)
+            self.training = True
 
         if self.is_event(episode, self.report_interval):
             recent_rewards = self.reward_log[-self.report_interval:]
-            desc = self.make_desc("reward", recent_rewards)
-            print("At episode {}, {}".format(episode, desc))
+            self.logger.describe("reward", recent_rewards, episode=episode)
 
 
 def main(play):
-    env = gym.make("CartPole-v0")
+    env = CartPoleObserver(gym.make("CartPole-v0"))
     trainer = PolicyGradientTrainer()
-    path = trainer.make_path("policy_gradient_agent.h5")
+    path = trainer.logger.path_of("policy_gradient_agent.h5")
 
     if play:
         agent = PolicyGradientAgent.load(env, path)
         agent.play(env)
     else:
         trained = trainer.train(env)
-        trainer.plot_logs("Rewards", trainer.reward_log,
-                          trainer.report_interval)
+        trainer.logger.plot("Rewards", trainer.reward_log,
+                            trainer.report_interval)
         trained.save(path)
 
 
