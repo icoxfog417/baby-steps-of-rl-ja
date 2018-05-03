@@ -85,7 +85,7 @@ class ValueFunctionTrainer(Trainer):
         agent.initialize(self.experiences)
 
     def step(self, episode, step_count, agent, experience):
-        if agent.initialized:
+        if self.training:
             batch = random.sample(self.experiences, self.batch_size)
             agent.update(batch, self.gamma)
 
