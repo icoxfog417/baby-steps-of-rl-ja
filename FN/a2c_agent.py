@@ -82,6 +82,7 @@ class ActorCriticAgent(FNAgent):
 
         updates = optimizer.get_updates(loss=loss,
                                         params=self.model.trainable_weights)
+
         self._updater = K.backend.function(
                                         inputs=[self.model.input,
                                                 actions, rewards,
@@ -190,7 +191,7 @@ ExperienceV = namedtuple("ExperienceV",
 class ActorCriticTrainer(Trainer):
 
     def __init__(self, buffer_size=50000, batch_size=32,
-                 gamma=0.99, initial_epsilon=0.5, final_epsilon=0.1,
+                 gamma=0.99, initial_epsilon=0.5, final_epsilon=0.01,
                  learning_rate=1e-3, report_interval=10,
                  log_dir="", file_name=""):
         super().__init__(buffer_size, batch_size, gamma,
@@ -248,7 +249,7 @@ class ActorCriticTrainer(Trainer):
         self.reward_log.append(sum(rewards))
 
         if not agent.initialized:
-            optimizer = K.optimizers.Adam(lr=self.learning_rate, clipnorm=0.5)
+            optimizer = K.optimizers.Adam(lr=self.learning_rate, clipnorm=40)
             agent.initialize(self.experiences, optimizer)
 
         discounteds = []
