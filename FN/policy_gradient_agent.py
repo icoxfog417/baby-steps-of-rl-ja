@@ -120,9 +120,9 @@ class PolicyGradientTrainer(Trainer):
         return states, actions, rewards
 
     def begin_train(self, episode, agent):
-        optimizer = K.optimizers.Adam()
+        optimizer = K.optimizers.Adam(clipnorm=1.0)
         agent.initialize(self.d_experiences, optimizer)
-        self._reward_scaler = StandardScaler()
+        self._reward_scaler = StandardScaler(with_mean=False)
         rewards = np.array([[e.r] for e in self.d_experiences])
         self._reward_scaler.fit(rewards)
 
@@ -161,7 +161,7 @@ def main(play):
         agent = PolicyGradientAgent.load(env, path)
         agent.play(env)
     else:
-        trained = trainer.train(env)
+        trained = trainer.train(env, episode_count=250)
         trainer.logger.plot("Rewards", trainer.reward_log,
                             trainer.report_interval)
         trained.save(path)
