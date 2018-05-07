@@ -132,10 +132,10 @@ class PolicyGradientTrainer(Trainer):
 
         discounteds = []
         for t, r in enumerate(rewards):
-            future_r = [_r * (self.gamma ** i) for i, _r in
+            d_r = [_r * (self.gamma ** i) for i, _r in
                         enumerate(rewards[t:])]
-            _r = sum(future_r)
-            discounteds.append(_r)
+            d_r = sum(d_r)
+            discounteds.append(d_r)
 
         for i, e in enumerate(self.experiences):
             s, a, r, n_s, d = e
