@@ -249,7 +249,7 @@ class ActorCriticTrainer(Trainer):
         self.reward_log.append(sum(rewards))
 
         if not agent.initialized:
-            optimizer = K.optimizers.Adam(lr=self.learning_rate, clipnorm=40)
+            optimizer = K.optimizers.Adam(lr=self.learning_rate, clipnorm=5.0)
             agent.initialize(self.experiences, optimizer)
 
         discounteds = []
