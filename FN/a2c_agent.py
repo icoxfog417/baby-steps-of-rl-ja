@@ -61,7 +61,7 @@ class ActorCriticAgent(FNAgent):
                              outputs=[actions, action_evals, values])
 
     def set_updater(self, optimizer,
-                    value_loss_weight=0.5, entropy_weight=0.01):
+                    value_loss_weight=0.5, entropy_weight=0.1):
         actions = tf.placeholder(shape=(None), dtype="int32")
         rewards = tf.placeholder(shape=(None), dtype="float32")
         past_values = tf.placeholder(shape=(None), dtype="float32")
@@ -249,7 +249,7 @@ class ActorCriticTrainer(Trainer):
         self.reward_log.append(sum(rewards))
 
         if not agent.initialized:
-            optimizer = K.optimizers.Adam(lr=self.learning_rate, clipnorm=5.0)
+            optimizer = K.optimizers.Adam(lr=self.learning_rate, clipnorm=1.0)
             agent.initialize(self.experiences, optimizer)
 
         discounteds = []
