@@ -203,6 +203,7 @@ class ActorCriticTrainer(Trainer):
         self.d_experiences = deque(maxlen=self.buffer_size)
         self.training_episode = 0
         self.losses = {}
+        self._max_reward = -10
 
     def train(self, env, episode_count=1200, initial_count=10,
               test_mode=False, render=False):
@@ -271,14 +272,16 @@ class ActorCriticTrainer(Trainer):
             self.training = True
 
         if self.training:
-            self.logger.write(self.training_count, "reward", sum(rewards))
+            reward = sum(rewards)
+            self.logger.write(self.training_count, "reward", reward)
             self.logger.write(self.training_count, "reward_max", max(rewards))
             self.logger.write(self.training_count, "epsilon", agent.epsilon)
             for k in self.losses:
                 loss = sum(self.losses[k]) / step_count
                 self.logger.write(self.training_count, "loss/" + k, loss)
-            if self.is_event(self.training_count, self.report_interval):
+            if reward > self._max_reward:
                 agent.save(self.logger.path_of(self.file_name))
+                self._max_reward = reward
 
             diff = (self.initial_epsilon - self.final_epsilon)
             decay = diff / self.training_episode
