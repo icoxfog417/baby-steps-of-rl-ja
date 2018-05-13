@@ -129,6 +129,7 @@ class DeepQNetworkTrainer(Trainer):
         self.teacher_update_freq = teacher_update_freq
         self.loss = 0
         self.training_episode = 0
+        self._max_reward = -10
 
     def train(self, env, episode_count=1200, initial_count=200,
               test_mode=False, render=False):
@@ -140,7 +141,6 @@ class DeepQNetworkTrainer(Trainer):
         self.training_episode = episode_count
 
         self.train_loop(env, agent, episode_count, initial_count, render)
-        agent.save(self.logger.path_of(self.file_name))
         return agent
 
     def episode_begin(self, episode, agent):
@@ -166,8 +166,9 @@ class DeepQNetworkTrainer(Trainer):
             self.logger.write(self.training_count, "loss", self.loss)
             self.logger.write(self.training_count, "reward", reward)
             self.logger.write(self.training_count, "epsilon", agent.epsilon)
-            if self.is_event(self.training_count, self.report_interval):
+            if reward > self._max_reward:
                 agent.save(self.logger.path_of(self.file_name))
+                self._max_reward = reward
             if self.is_event(self.training_count, self.teacher_update_freq):
                 agent.update_teacher()
 
