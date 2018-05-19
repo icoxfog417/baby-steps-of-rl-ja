@@ -74,8 +74,7 @@ class ActorCriticAgent(FNAgent):
 
         policy_loss = tf.reduce_mean(neg_logs * advantages)
         value_loss = tf.losses.mean_squared_error(rewards, values)
-        action_entropy = self.categorical_entropy_with_logits(action_evals)
-        action_entropy = tf.reduce_mean(action_entropy)
+        action_entropy = tf.reduce_mean(self.categorical_entropy(action_evals))
 
         loss = policy_loss + value_loss_weight * value_loss
         loss -= entropy_weight * action_entropy
@@ -92,7 +91,7 @@ class ActorCriticAgent(FNAgent):
                                                  action_entropy],
                                         updates=updates)
 
-    def categorical_entropy_with_logits(self, logits):
+    def categorical_entropy(self, logits):
         """
         From OpenAI A2C implementation
         https://github.com/openai/baselines/blob/master/baselines/a2c/utils.py
