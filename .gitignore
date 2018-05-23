@@ -102,3 +102,4 @@ ENV/
 .vscode
 .DS_Store
 FN/logs
+*.h5
