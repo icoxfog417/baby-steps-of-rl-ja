@@ -105,7 +105,7 @@ class CatcherObserver():
 
 class EvolutionalTrainer():
 
-    def __init__(self, population_size=50, sigma=0.5, learning_rate=0.1,
+    def __init__(self, population_size=20, sigma=0.5, learning_rate=0.1,
                  report_interval=10):
         self.population_size = population_size
         self.sigma = sigma
