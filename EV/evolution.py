@@ -161,7 +161,7 @@ class EvolutionalTrainer():
                 agent.initialize(s, new_weights)
             done = False
             step = 0
-            while not done or step < max_step:
+            while not done and step < max_step:
                 a = agent.policy(s)
                 n_state, reward, done, info = env.step(a)
                 total_reward += reward
