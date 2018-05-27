@@ -12,8 +12,8 @@ class SARSAAgent(ELAgent):
     def learn(self, env, episode_count=100000, gamma=0.9,
               learning_rate=0.1, render=False, report_interval=100):
         self.init_log()
-        self.Q = defaultdict(lambda: [0] * len(actions))
         actions = list(range(env.action_space.n))
+        self.Q = defaultdict(lambda: [0] * len(actions))
         for e in range(episode_count):
             s = env.reset()
             done = False
