@@ -112,7 +112,7 @@ def main(steps_in_world):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Imitation Learning")
+    parser = argparse.ArgumentParser(description="Dyna Agent")
     parser.add_argument("--world", type=int, default=-1,
                         help="step count in the world")
 
