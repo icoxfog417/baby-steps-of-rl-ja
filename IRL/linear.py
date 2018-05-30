@@ -15,48 +15,58 @@ class LinerIRL():
 
     def initialize(self, num_states, num_actions, optimizer, r_limit=2):
         # Variables
-        state = tf.placeholder(tf.int32, shape=())
-        best_prob = tf.placeholder(tf.float32, shape=())
-        other_prob = tf.placeholder(tf.float32, shape=(None,))
-        next_state_mask = tf.placeholder(tf.int32, shape=(num_states,))
+        best_trans_prob = tf.placeholder(tf.float32, shape=(num_states,))
+        other_trans_probs = tf.placeholder(tf.float32, shape=(num_actions - 1, num_states))
         gamma = tf.placeholder(tf.float32, shape=())
 
         rewards = tf.Variable(tf.random_normal([num_states],
                               mean=r_limit / 2), name="rewards")
 
         # Calculate loss
-        eye = tf.eye(tf.size(other_prob))
-        p_best = eye * best_prob
-        p_others = eye * other_prob
-        other_rewards = tf.boolean_mask(rewards, next_state_mask)
-        formula = K.backend.dot((p_best - p_others),
-                                tf.matrix_inverse(eye - gamma * p_others))
+        index = tf.constant(0)
+        final_loss = tf.constant(1e+10)
+        eye = tf.eye(num_states)
 
-        formula = K.backend.dot(formula, tf.reshape(other_rewards, (-1, 1)))
-        loss = tf.reduce_min(formula)
+        condition = lambda i, loss: tf.less(i, other_trans_probs.shape[0])
 
+        def process(i, loss):
+            other_trans_prob = other_trans_probs[i]
+            formula = K.backend.dot(tf.reshape((best_trans_prob - other_trans_prob), (1, -1)),
+                                    tf.matrix_inverse(eye - gamma * best_trans_prob))
+            formula = K.backend.dot(formula, tf.reshape(rewards, (-1, 1)))
+            f_bound = tf.exp(tf.reduce_sum(K.activations.relu(-formula)))
+            _loss = tf.squeeze(formula) #- f_bound
+            loss = tf.reduce_min([loss, _loss])
+            i = tf.add(i, 1)
+            return i, loss
+
+        final_index, final_loss = tf.while_loop(condition, process, [index, final_loss])
         l1 = tf.reduce_sum(tf.abs(rewards))  # L1 regularization
-        f_bound = tf.exp(tf.reduce_sum(K.activations.relu(-formula)))
         r_bound = tf.exp(tf.reduce_sum(K.activations.relu(
-                                        tf.abs(rewards) - r_limit)))
-        loss -= (l1 + f_bound + r_bound)
-        loss = -loss
+                                    tf.abs(rewards) - r_limit)))
+        final_loss -= (l1 )
+        final_loss = -final_loss
 
         # Get gradients
-        updates = optimizer.get_updates(loss=loss, params=[rewards])
+        updates = optimizer.get_updates(loss=final_loss, params=[rewards])
         self._updater = K.backend.function(
-                                        inputs=[state, best_prob,
-                                                other_prob, next_state_mask,
+                                        inputs=[best_trans_prob,
+                                                other_trans_probs,
                                                 gamma],
-                                        outputs=[loss, rewards],
+                                        outputs=[final_loss, rewards],
                                         updates=updates)
 
-    def _softmax(self, estimates):
-        return np.exp(estimates) / np.sum(np.exp(estimates), axis=0)
+    def to_trans_prob(self, env, probs):
+        states = env.states
+        mx = np.zeros(len(states))
+        for s in states:
+            if s in probs:
+                mx[s.index(env.row_length)] = probs[s]
+        return mx
 
-    def estimate(self, env, teacher, episode_count=3000, learning_rate=1e-4,
-                 gamma=0.2, report_interval=100):
-        optimizer = K.optimizers.SGD(learning_rate)
+    def estimate(self, env, teacher, episode_count=3000, learning_rate=1e-3,
+                 gamma=0.9, report_interval=100):
+        optimizer = K.optimizers.Adam(learning_rate)
         num_actions = len(env.action_space)
         num_states = len(env.states)
         self.initialize(num_states, num_actions, optimizer)
@@ -65,21 +75,25 @@ class LinerIRL():
             losses = []
             for s in env.states:
                 actions = teacher.policy[s]
-                a = max(actions, key=actions.get)
-                probs = env.transit_func(s, a)
-
-                if len(probs) == 0:
+                best_action = max(actions, key=actions.get)
+                best_action_trans_prob = None
+                other_action_trans_probs = []
+                for a in env.action_space:
+                    probs = env.transit_func(s, a)
+                    if len(probs) == 0:
+                        continue
+                    if a == best_action:
+                        best_action_trans_prob = self.to_trans_prob(env, probs)
+                    else:
+                        other_action_trans_probs.append(
+                            self.to_trans_prob(env, probs)
+                        )
+                if best_action_trans_prob is None:
                     continue
 
-                max_state = max(probs, key=probs.get)
-                other_states = [_s for _s in probs if _s != max_state]
-                best_prob = probs[max_state]
-                other_probs = [probs[_s] for _s in other_states]
-                state_index = s.index(env.row_length)
-                next_state_mask = [True if _s in other_states else False
-                                   for _s in env.states]
-                loss, self.rewards = self._updater([state_index, best_prob,
-                                                    other_probs, next_state_mask,
+                other_action_trans_probs = np.array(other_action_trans_probs)
+                loss, self.rewards = self._updater([best_action_trans_prob,
+                                                    other_action_trans_probs,
                                                     gamma])
                 losses.append(loss)
 
