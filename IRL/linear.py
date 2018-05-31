@@ -13,7 +13,7 @@ class LinerIRL():
         self._updater = None
         self.rewards = None
 
-    def initialize(self, num_states, num_actions, optimizer, r_max=3):
+    def initialize(self, num_states, num_actions, optimizer, C=1.0, r_max=2):
         # Variables
         best_trans_probs = tf.placeholder(tf.float32,
                                           shape=(num_states, num_states))
@@ -22,7 +22,6 @@ class LinerIRL():
                                                    num_actions - 1,
                                                    num_states))
         gamma = tf.placeholder(tf.float32, shape=())
-
         rewards = tf.Variable(tf.random_normal([num_states], mean=r_max/2),
                               name="rewards")
 
@@ -36,13 +35,13 @@ class LinerIRL():
             best_trans_prob = best_trans_probs[s]
             other_trans_prob = other_trans_probss[s][i]
 
-            P_left = tf.reshape((best_trans_prob - other_trans_prob), (1, -1))
-            P_right = tf.matrix_inverse(eye - gamma * best_trans_prob)
+            f_left = tf.reshape((best_trans_prob - other_trans_prob), (1, -1))
+            f_right = tf.matrix_inverse(eye - gamma * best_trans_prob)
 
             # Limit the rewards of other actions smaller than best's one.
             R = tf.reshape(tf.clip_by_value(rewards, -r_max, r_max), (-1, 1))
 
-            formula = K.backend.dot(K.backend.dot(P_left, P_right), R)
+            formula = K.backend.dot(K.backend.dot(f_left, f_right), R)
 
             # Formula should be positive
             _loss = tf.squeeze(K.activations.relu(formula))
@@ -56,7 +55,7 @@ class LinerIRL():
                                            [s, _indices[s], _min_losses[s]])
             total_loss = tf.add(total_loss, min_loss)
 
-        total_loss -= tf.reduce_sum(tf.abs(rewards))  # L1 regularization
+        total_loss -= C * tf.reduce_sum(tf.abs(rewards))  # L1 regularization
         total_loss = -total_loss  # Maximize to Minimize
 
         # Get gradients
@@ -124,8 +123,8 @@ class LinerIRL():
 
 def main():
     grid = [
-        [0, 0, 0, 0],
         [0, 0, 0, 1],
+        [0, 0, 0, 0],
         [0, 0, 0, 0],
         [0, 0, 0, 0]
     ]
