@@ -13,47 +13,59 @@ class LinerIRL():
         self._updater = None
         self.rewards = None
 
-    def initialize(self, num_states, num_actions, optimizer, r_limit=2):
+    def initialize(self, num_states, num_actions, optimizer, r_max=3):
         # Variables
-        best_trans_prob = tf.placeholder(tf.float32, shape=(num_states,))
-        other_trans_probs = tf.placeholder(tf.float32, shape=(num_actions - 1, num_states))
+        best_trans_probs = tf.placeholder(tf.float32,
+                                          shape=(num_states, num_states))
+        other_trans_probss = tf.placeholder(tf.float32,
+                                            shape=(num_states,
+                                                   num_actions - 1,
+                                                   num_states))
         gamma = tf.placeholder(tf.float32, shape=())
 
-        rewards = tf.Variable(tf.random_normal([num_states],
-                              mean=r_limit / 2), name="rewards")
+        rewards = tf.Variable(tf.random_normal([num_states], mean=r_max/2),
+                              name="rewards")
 
-        # Calculate loss
-        index = tf.constant(0)
-        final_loss = tf.constant(1e+10)
+        _indices = tf.constant([0] * num_states)
+        _min_losses = tf.constant([1e+10] * num_states)
         eye = tf.eye(num_states)
 
-        condition = lambda i, loss: tf.less(i, other_trans_probs.shape[0])
+        condition = lambda s, i, loss: tf.less(i, other_trans_probss.shape[1])  # noqa
 
-        def process(i, loss):
-            other_trans_prob = other_trans_probs[i]
-            formula = K.backend.dot(tf.reshape((best_trans_prob - other_trans_prob), (1, -1)),
-                                    tf.matrix_inverse(eye - gamma * best_trans_prob))
-            formula = K.backend.dot(formula, tf.reshape(rewards, (-1, 1)))
-            f_bound = tf.exp(tf.reduce_sum(K.activations.relu(-formula)))
-            _loss = tf.squeeze(formula) #- f_bound
+        def process(s, i, loss):
+            best_trans_prob = best_trans_probs[s]
+            other_trans_prob = other_trans_probss[s][i]
+
+            P_left = tf.reshape((best_trans_prob - other_trans_prob), (1, -1))
+            P_right = tf.matrix_inverse(eye - gamma * best_trans_prob)
+
+            # Limit the rewards of other actions smaller than best's one.
+            R = tf.reshape(tf.clip_by_value(rewards, -r_max, r_max), (-1, 1))
+
+            formula = K.backend.dot(K.backend.dot(P_left, P_right), R)
+
+            # Formula should be positive
+            _loss = tf.squeeze(K.activations.relu(formula))
             loss = tf.reduce_min([loss, _loss])
             i = tf.add(i, 1)
-            return i, loss
+            return s, i, loss
 
-        final_index, final_loss = tf.while_loop(condition, process, [index, final_loss])
-        l1 = tf.reduce_sum(tf.abs(rewards))  # L1 regularization
-        r_bound = tf.exp(tf.reduce_sum(K.activations.relu(
-                                    tf.abs(rewards) - r_limit)))
-        final_loss -= (l1 )
-        final_loss = -final_loss
+        total_loss = tf.constant(0.0)
+        for s in range(num_states):
+            _, _, min_loss = tf.while_loop(condition, process,
+                                           [s, _indices[s], _min_losses[s]])
+            total_loss = tf.add(total_loss, min_loss)
+
+        total_loss -= tf.reduce_sum(tf.abs(rewards))  # L1 regularization
+        total_loss = -total_loss  # Maximize to Minimize
 
         # Get gradients
-        updates = optimizer.get_updates(loss=final_loss, params=[rewards])
+        updates = optimizer.get_updates(loss=total_loss, params=[rewards])
         self._updater = K.backend.function(
-                                        inputs=[best_trans_prob,
-                                                other_trans_probs,
+                                        inputs=[best_trans_probs,
+                                                other_trans_probss,
                                                 gamma],
-                                        outputs=[final_loss, rewards],
+                                        outputs=[total_loss, rewards],
                                         updates=updates)
 
     def to_trans_prob(self, env, probs):
@@ -64,7 +76,7 @@ class LinerIRL():
                 mx[s.index(env.row_length)] = probs[s]
         return mx
 
-    def estimate(self, env, teacher, episode_count=3000, learning_rate=1e-3,
+    def estimate(self, env, teacher, episode_count=6000, learning_rate=1e-3,
                  gamma=0.9, report_interval=100):
         optimizer = K.optimizers.Adam(learning_rate)
         num_actions = len(env.action_space)
@@ -72,34 +84,38 @@ class LinerIRL():
         self.initialize(num_states, num_actions, optimizer)
         loss_history = []
         for e in range(episode_count):
-            losses = []
+            best_trans_probs = []
+            other_trans_probss = []
             for s in env.states:
                 actions = teacher.policy[s]
                 best_action = max(actions, key=actions.get)
-                best_action_trans_prob = None
-                other_action_trans_probs = []
+                best_trans_prob = np.zeros(num_states)
+                other_trans_probs = []
                 for a in env.action_space:
                     probs = env.transit_func(s, a)
                     if len(probs) == 0:
                         continue
                     if a == best_action:
-                        best_action_trans_prob = self.to_trans_prob(env, probs)
+                        best_trans_prob = self.to_trans_prob(env, probs)
                     else:
-                        other_action_trans_probs.append(
+                        other_trans_probs.append(
                             self.to_trans_prob(env, probs)
                         )
-                if best_action_trans_prob is None:
-                    continue
+                if len(other_trans_probs) == 0:
+                    other_trans_probs = [np.zeros(num_states)] * (num_actions - 1)
 
-                other_action_trans_probs = np.array(other_action_trans_probs)
-                loss, self.rewards = self._updater([best_action_trans_prob,
-                                                    other_action_trans_probs,
-                                                    gamma])
-                losses.append(loss)
+                other_trans_probs = np.array(other_trans_probs)
 
-            else:
-                loss_history.append(np.mean(losses))
+                best_trans_probs.append(best_trans_prob)
+                other_trans_probss.append(other_trans_probs)
 
+            best_trans_probs = np.array(best_trans_probs)
+            other_trans_probss = np.array(other_trans_probss)
+
+            loss, self.rewards = self._updater([best_trans_probs,
+                                                other_trans_probss,
+                                                gamma])
+            loss_history.append(loss)
             if e != 0 and e % report_interval == 0:
                 viz.describe(e, "loss", loss_history, report_interval)
 
@@ -108,18 +124,22 @@ class LinerIRL():
 
 def main():
     grid = [
-        [0, 0, 0, 1],
-        [0, -1, 0, -1],
         [0, 0, 0, 0],
+        [0, 0, 0, 1],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0]
     ]
+    # Prepare Teacher
     env = Environment(grid)
     planner = PolicyIterationPlanner(env)
-    V_grid = planner.plan()
+    planner.plan()
 
+    # Execute IRL
     irl = LinerIRL()
-    loss_history = irl.estimate(env, planner)
+    irl.estimate(env, planner)
     print(irl.rewards)
 
+    # Plot Reward Map
     ncol = env.column_length
     nrow = env.row_length
     import matplotlib.pyplot as plt
