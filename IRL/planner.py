@@ -3,27 +3,24 @@ import numpy as np
 
 class Planner():
 
-    def __init__(self, env):
+    def __init__(self, env, reward_func=None):
         self.env = env
-
-    @property
-    def actions(self):
-        return list(range(self.env.action_space.n))
-
-    @property
-    def states(self):
-        return list(range(self.env.observation_space.n))
+        self.reward_func = reward_func
+        if self.reward_func is None:
+            self.reward_func = self.env.reward_func
 
     def initialize(self):
         self.env.reset()
 
     def transitions_at(self, state, action):
-        reward, done = self.env.reward_func(state)
+        reward = self.reward_func(state)
+        done = self.env.has_done(state)
         if not done:
             transition_probs = self.env.transit_func(state, action)
             for next_state in transition_probs:
                 prob = transition_probs[next_state]
-                reward, done = self.env.reward_func(next_state)
+                reward = self.reward_func(next_state)
+                done = self.env.has_done(state)
                 yield prob, next_state, reward, done
         else:
             yield 1.0, None, reward, done
@@ -39,12 +36,12 @@ class ValuteIterationPlanner(Planner):
 
     def plan(self, gamma=0.9, threshold=0.0001):
         self.initialize()
-        V = np.zeros(len(self.states))
+        V = np.zeros(len(self.env.states))
         while True:
             delta = 0
-            for s in self.states:
+            for s in self.env.states:
                 expected_rewards = []
-                for a in self.actions:
+                for a in self.env.actions:
                     reward = 0
                     for p, n_s, r, done in self.transitions_at(s, a):
                         if n_s is None:
@@ -80,9 +77,9 @@ class PolicyIterationPlanner(Planner):
 
         while True:
             delta = 0
-            for s in self.states:
+            for s in self.env.states:
                 expected_rewards = []
-                for a in self.actions:
+                for a in self.env.actions:
                     action_prob = self.policy[s][a]
                     reward = 0
                     for p, n_s, r, done in self.transitions_at(s, a):
@@ -99,6 +96,9 @@ class PolicyIterationPlanner(Planner):
                 break
         return V
 
+    def act(self, s):
+        return np.argmax(self.policy[s])
+
     def plan(self, gamma=0.9, threshold=0.0001):
         self.initialize()
 
@@ -107,13 +107,13 @@ class PolicyIterationPlanner(Planner):
             # Estimate expected rewards under current policy
             V = self.estimate_by_policy(gamma, threshold)
 
-            for s in self.states:
+            for s in self.env.states:
                 # Get action following to the policy (choose max prob's action)
-                policy_action = np.argmax(self.policy[s])
+                policy_action = self.act(s)
 
                 # Compare with other actions
-                action_rewards = np.zeros(len(self.actions))
-                for a in self.actions:
+                action_rewards = np.zeros(len(self.env.actions))
+                for a in self.env.actions:
                     reward = 0
                     for p, n_s, r, done in self.transitions_at(s, a):
                         if n_s is None:
@@ -126,7 +126,7 @@ class PolicyIterationPlanner(Planner):
                     update_stable = False
 
                 # Update policy (set best_action prob=1, otherwise=0 (greedy))
-                self.policy[s] = np.zeros(len(self.actions))
+                self.policy[s] = np.zeros(len(self.env.actions))
                 self.policy[s][best_action] = 1.0
 
             if update_stable:
