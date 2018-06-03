@@ -44,7 +44,7 @@ class LinerIRL():
             formula = K.backend.dot(K.backend.dot(f_left, f_right), R)
 
             # Formula should be positive
-            _loss = tf.squeeze(K.activations.relu(formula))
+            _loss = tf.abs(tf.squeeze(tf.nn.leaky_relu(formula)))
             loss = tf.reduce_min([loss, _loss])
             i = tf.add(i, 1)
             return s, i, loss
