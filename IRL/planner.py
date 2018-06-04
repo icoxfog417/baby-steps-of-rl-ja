@@ -34,6 +34,19 @@ class ValuteIterationPlanner(Planner):
     def __init__(self, env):
         super().__init__(env)
 
+    def v_to_q(self, V, gamma):
+        Q = np.zeros((self.env.observation_space.n,
+                      self.env.action_space.n))
+
+        for s in self.env.states:
+            for a in self.env.actions:
+                for p, n_s, r, done in self.transitions_at(s, a):
+                    if done:
+                        Q[s][a] += p * r
+                    else:
+                        Q[s][a] += p * (r + gamma * V[n_s])
+        return Q
+
     def plan(self, gamma=0.9, threshold=0.0001):
         self.initialize()
         V = np.zeros(len(self.env.states))
@@ -147,7 +160,10 @@ if __name__ == "__main__":
         ])
         print("Value Iteration")
         vp = ValuteIterationPlanner(env)
-        print(vp.plan().reshape(env.shape))
+        v = vp.plan()
+        print(v.reshape(env.shape))
+        q = vp.v_to_q(v, 0.9)
+        print(np.sum(q, axis=1).reshape(env.shape))
 
         print("Policy Iteration")
         pp = PolicyIterationPlanner(env)
