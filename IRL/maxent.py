@@ -62,9 +62,9 @@ class MaxEntIRL():
                 a = self.planner.act(prev_s)
                 probs = self.env.transit_func(prev_s, a)
                 for s in probs:
-                    transition_probs[t][s] = prev_prob * probs[s]
+                    transition_probs[t][s] += prev_prob * probs[s]
 
-        total = np.sum(transition_probs, axis=0)
+        total = np.mean(transition_probs, axis=0)
         return total
 
 
@@ -74,7 +74,7 @@ if __name__ == "__main__":
         env = GridWorldEnv(grid=[
             [0, 0, 0, 1],
             [0, 0, 0, 0],
-            [0, 0, 0, 0],
+            [0, -1, 0, 0],
             [0, 0, 0, 0],
         ])
         # Train Teacher
