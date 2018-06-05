@@ -34,19 +34,6 @@ class ValuteIterationPlanner(Planner):
     def __init__(self, env):
         super().__init__(env)
 
-    def v_to_q(self, V, gamma):
-        Q = np.zeros((self.env.observation_space.n,
-                      self.env.action_space.n))
-
-        for s in self.env.states:
-            for a in self.env.actions:
-                for p, n_s, r, done in self.transitions_at(s, a):
-                    if done:
-                        Q[s][a] += p * r
-                    else:
-                        Q[s][a] += p * (r + gamma * V[n_s])
-        return Q
-
     def plan(self, gamma=0.9, threshold=0.0001):
         self.initialize()
         V = np.zeros(len(self.env.states))
@@ -77,6 +64,7 @@ class PolicyIterationPlanner(Planner):
     def __init__(self, env):
         super().__init__(env)
         self.policy = None
+        self._limit_count = 1000
 
     def initialize(self):
         super().initialize()
@@ -85,9 +73,24 @@ class PolicyIterationPlanner(Planner):
         # First, take each action uniformly.
         self.polidy = self.policy / self.env.action_space.n
 
+    def policy_to_q(self, V, gamma):
+        Q = np.zeros((self.env.observation_space.n,
+                      self.env.action_space.n))
+
+        for s in self.env.states:
+            for a in self.env.actions:
+                a_p = self.policy[s][a]
+                for p, n_s, r, done in self.transitions_at(s, a):
+                    if done:
+                        Q[s][a] += p * a_p * r
+                    else:
+                        Q[s][a] += p * a_p * (r + gamma * V[n_s])
+        return Q
+
     def estimate_by_policy(self, gamma, threshold):
         V = np.zeros(self.env.observation_space.n)
 
+        count = 0
         while True:
             delta = 0
             for s in self.env.states:
@@ -105,16 +108,21 @@ class PolicyIterationPlanner(Planner):
                 max_reward = max(expected_rewards)
                 delta = max(delta, abs(max_reward - V[s]))
                 V[s] = max_reward
-            if delta < threshold:
+
+            if delta < threshold or count > self._limit_count:
                 break
+            count += 1
+
         return V
 
     def act(self, s):
         return np.argmax(self.policy[s])
 
-    def plan(self, gamma=0.9, threshold=0.0001):
-        self.initialize()
+    def plan(self, gamma=0.9, threshold=0.0001, keep_policy=False):
+        if not keep_policy:
+            self.initialize()
 
+        count = 0
         while True:
             update_stable = True
             # Estimate expected rewards under current policy
@@ -142,9 +150,10 @@ class PolicyIterationPlanner(Planner):
                 self.policy[s] = np.zeros(len(self.env.actions))
                 self.policy[s][best_action] = 1.0
 
-            if update_stable:
+            if update_stable or count > self._limit_count:
                 # If policy isn't updated, stop iteration
                 break
+            count += 1
 
         return V
 
@@ -162,11 +171,12 @@ if __name__ == "__main__":
         vp = ValuteIterationPlanner(env)
         v = vp.plan()
         print(v.reshape(env.shape))
-        q = vp.v_to_q(v, 0.9)
-        print(np.sum(q, axis=1).reshape(env.shape))
 
         print("Policy Iteration")
         pp = PolicyIterationPlanner(env)
-        print(pp.plan().reshape(env.shape))
+        v = pp.plan()
+        print(v.reshape(env.shape))
+        q = pp.policy_to_q(v, 0.9)
+        print(np.sum(q, axis=1).reshape(env.shape))
 
     test_plan()
