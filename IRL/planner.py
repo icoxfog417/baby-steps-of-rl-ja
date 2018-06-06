@@ -15,15 +15,18 @@ class Planner():
     def transitions_at(self, state, action):
         reward = self.reward_func(state)
         done = self.env.has_done(state)
+        transition = []
         if not done:
             transition_probs = self.env.transit_func(state, action)
             for next_state in transition_probs:
                 prob = transition_probs[next_state]
                 reward = self.reward_func(next_state)
                 done = self.env.has_done(state)
-                yield prob, next_state, reward, done
+                transition.append((prob, next_state, reward, done))
         else:
-            yield 1.0, None, reward, done
+            transition.append((1.0, None, reward, done))
+        for p, n_s, r, d in transition:
+            yield p, n_s, r, d
 
     def plan(self, gamma=0.9, threshold=0.0001):
         raise Exception("Planner have to implements plan method.")

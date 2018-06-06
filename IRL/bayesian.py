@@ -15,13 +15,16 @@ class BayesianIRL():
         self.env = env
         self.planner = PolicyIterationPlanner(env)
         self.eta = eta
+        self._mean = prior_mean
+        self._scale = prior_scale
         self.prior_dist = scipy.stats.norm(loc=prior_mean,
                                            scale=prior_scale)
 
-    def estimate(self, trajectories, epoch=30, gamma=0.9,
+    def estimate(self, trajectories, epoch=50, gamma=0.3,
                  learning_rate=0.1, sigma=0.05, sample_size=20):
         num_states = len(self.env.states)
-        reward = np.random.normal(size=num_states, scale=1.0)
+        reward = np.random.normal(size=num_states,
+                                  loc=self._mean, scale=self._scale)
 
         def get_q(r, g):
             self.planner.reward_func = lambda s: r[s]
@@ -42,7 +45,6 @@ class BayesianIRL():
 
                 # Calculate likelihood
                 likelihood = self.calculate_likelihood(trajectories, Q)
-
                 # Calculate posterior
                 posterior = likelihood + reward_prior
                 scores.append(posterior)
@@ -64,11 +66,8 @@ class BayesianIRL():
             t_advantage = 0.0
             for s, a in t:
                 best_value = self.eta * Q[s][a]
-                other_values = [self.eta * Q[s][_a] for _a in self.env.actions
-                                if _a != a]
-                other_total = logsumexp(other_values)
-                t_advantage += (best_value - other_total)
-            t_advantage /= len(t)
+                total = [self.eta * Q[s][_a] for _a in self.env.actions]
+                t_advantage += (best_value - logsumexp(total))
             advantage += t_advantage
         advantage /= len(trajectories)
         return advantage
