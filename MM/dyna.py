@@ -12,22 +12,22 @@ class DynaAgent():
     def __init__(self, epsilon=0.1):
         self.epsilon = epsilon
         self.actions = []
-        self.model = None
+        self.value = None
 
     def policy(self, state):
         if np.random.random() < self.epsilon:
             return np.random.randint(len(self.actions))
         else:
-            if sum(self.model[state]) == 0:
+            if sum(self.value[state]) == 0:
                 return np.random.randint(len(self.actions))
             else:            
-                return np.argmax(self.model[state])
+                return np.argmax(self.value[state])
 
     def learn(self, env, episode_count=3000, gamma=0.9, learning_rate=0.1,
-              steps_in_world=-1, report_interval=100):
+              steps_in_model=-1, report_interval=100):
         self.actions = list(range(env.action_space.n))
-        self.model = defaultdict(lambda: [0] * len(self.actions))
-        world = World(self.actions)
+        self.value = defaultdict(lambda: [0] * len(self.actions))
+        model = Model(self.actions)
 
         rewards = []
         for e in range(episode_count):
@@ -39,16 +39,16 @@ class DynaAgent():
                 n_state, reward, done, info = env.step(a)
 
                 # Update from real environment experiment
-                gain = reward + gamma * max(self.model[n_state])
-                estimated = self.model[s][a]
-                self.model[s][a] += learning_rate * (gain - estimated)
+                gain = reward + gamma * max(self.value[n_state])
+                estimated = self.value[s][a]
+                self.value[s][a] += learning_rate * (gain - estimated)
 
-                if steps_in_world > 0:
-                    world.update(s, a, reward, n_state)
-                    for s, a, r, n_s in world.simulate(steps_in_world):
-                        gain = r + gamma * max(self.model[n_s])
-                        estimated = self.model[s][a]
-                        self.model[s][a] += learning_rate * (gain - estimated)
+                if steps_in_model > 0:
+                    model.update(s, a, reward, n_state)
+                    for s, a, r, n_s in model.simulate(steps_in_model):
+                        gain = r + gamma * max(self.value[n_s])
+                        estimated = self.value[s][a]
+                        self.value[s][a] += learning_rate * (gain - estimated)
 
                 s = n_state
             else:
@@ -61,7 +61,7 @@ class DynaAgent():
                         e, recent.mean()))
 
 
-class World():
+class Model():
 
     def __init__(self, actions):
         self.num_actions = len(actions)
@@ -105,16 +105,16 @@ class World():
             yield state, action, reward, next_state
 
 
-def main(steps_in_world):
+def main(steps_in_model):
     env = gym.make("FrozenLakeEasy-v0")
     agent = DynaAgent()
-    agent.learn(env, steps_in_world=steps_in_world)
+    agent.learn(env, steps_in_model=steps_in_model)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Dyna Agent")
-    parser.add_argument("--world", type=int, default=-1,
-                        help="step count in the world")
+    parser.add_argument("--modelstep", type=int, default=-1,
+                        help="step count in the model")
 
     args = parser.parse_args()
-    main(args.world)
+    main(args.modelstep)

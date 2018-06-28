@@ -1,6 +1,5 @@
 import os
 import argparse
-from collections import deque
 import numpy as np
 from sklearn.externals.joblib import Parallel, delayed
 from PIL import Image
@@ -8,7 +7,7 @@ import matplotlib.pyplot as plt
 import gym
 import gym_ple
 
-# Disable GPU for parallel execution
+# Disable TensorFlow GPU for parallel execution
 if os.name == "nt":
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 else:

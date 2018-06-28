@@ -166,29 +166,29 @@ class Student():
                         e, recent.mean()))
 
             with warnings.catch_warnings():
-                # It will be fixed at latest scikit-learn
+                # It will be fixed in latest scikit-learn
                 # https://github.com/scikit-learn/scikit-learn/issues/10449
                 warnings.filterwarnings("ignore", category=DeprecationWarning)
                 self.model.partial_fit(states, actions)
 
 
-def main(train):
+def main(teacher):
     env = FrozenLakeObserver()
     path = os.path.join(os.path.dirname(__file__), "imitation_teacher.pkl")
 
-    if train:
+    if teacher:
         agent = TeacherAgent.train(env)
         agent.save(path)
     else:
-        teacher = TeacherAgent.load(env, path)
+        teacher_agent = TeacherAgent.load(env, path)
         student = Student(env)
-        student.imitate(env, teacher)
+        student.imitate(env, teacher_agent)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Imitation Learning")
-    parser.add_argument("--train", action="store_true",
+    parser.add_argument("--teacher", action="store_true",
                         help="train teacher model")
 
     args = parser.parse_args()
-    main(args.train)
+    main(args.teacher)
