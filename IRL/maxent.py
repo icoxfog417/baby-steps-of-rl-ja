@@ -1,5 +1,6 @@
 import numpy as np
 from planner import PolicyIterationPlanner
+from tqdm import tqdm
 
 
 class MaxEntIRL():
@@ -11,12 +12,12 @@ class MaxEntIRL():
     def estimate(self, trajectories, epoch=20, learning_rate=0.01, gamma=0.9):
         state_features = np.vstack([self.env.state_to_feature(s)
                                    for s in self.env.states])
-        alpha = np.random.uniform(size=state_features.shape[1])
-        teacher_features = self.expected_feature_of(trajectories)
+        theta = np.random.uniform(size=state_features.shape[1])
+        teacher_features = self.calculate_expected_feature(trajectories)
 
-        for e in range(epoch):
+        for e in tqdm(range(epoch)):
             # Estimate reward
-            rewards = state_features.dot(alpha.T)
+            rewards = state_features.dot(theta.T)
 
             # Make policy under estimated reward
             self.planner.reward_func = lambda s: rewards[s]
@@ -28,15 +29,13 @@ class MaxEntIRL():
 
             # Update to close to teacher
             update = teacher_features - features.dot(state_features)
-            alpha += learning_rate * update
-            if e % 10 == 0:
-                print("Done epoch {}".format(e))
+            theta += learning_rate * update
 
-        estimated = state_features.dot(alpha.T)
+        estimated = state_features.dot(theta.T)
         estimated = estimated.reshape(self.env.shape)
         return estimated
 
-    def expected_feature_of(self, trajectories):
+    def calculate_expected_feature(self, trajectories):
         features = np.zeros(self.env.observation_space.n)
         for t in trajectories:
             for s in t:

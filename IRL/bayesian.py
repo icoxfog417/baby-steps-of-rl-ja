@@ -1,12 +1,8 @@
 import numpy as np
 import scipy.stats
 from scipy.misc import logsumexp
-import tensorflow.contrib.eager as tfe
 from planner import PolicyIterationPlanner
 from tqdm import tqdm
-
-
-tfe.enable_eager_execution()
 
 
 class BayesianIRL():
@@ -61,16 +57,16 @@ class BayesianIRL():
         return reward
 
     def calculate_likelihood(self, trajectories, Q):
-        advantage = 0.0
+        mean_log_prob = 0.0
         for t in trajectories:
-            t_advantage = 0.0
+            t_log_prob = 0.0
             for s, a in t:
-                best_value = self.eta * Q[s][a]
+                expert_value = self.eta * Q[s][a]
                 total = [self.eta * Q[s][_a] for _a in self.env.actions]
-                t_advantage += (best_value - logsumexp(total))
-            advantage += t_advantage
-        advantage /= len(trajectories)
-        return advantage
+                t_log_prob += (expert_value - logsumexp(total))
+            mean_log_prob += t_log_prob
+        mean_log_prob /= len(trajectories)
+        return mean_log_prob
 
 
 if __name__ == "__main__":
