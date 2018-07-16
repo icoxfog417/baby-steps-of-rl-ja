@@ -36,7 +36,7 @@ class ValuteIterationPlanner(Planner):
 
     def plan(self, gamma=0.9, threshold=0.0001):
         self.initialize()
-        actions = self.env.action_space
+        actions = self.env.actions
         V = {}
         for s in self.env.states:
             # Initialize each state's expected reward
@@ -75,7 +75,7 @@ class PolicyIterationPlanner(Planner):
     def initialize(self):
         super().initialize()
         self.policy = {}
-        actions = self.env.action_space
+        actions = self.env.actions
         states = self.env.states
         for s in states:
             self.policy[s] = {}
@@ -111,7 +111,7 @@ class PolicyIterationPlanner(Planner):
     def plan(self, gamma=0.9, threshold=0.0001):
         self.initialize()
         states = self.env.states
-        actions = self.env.action_space
+        actions = self.env.actions
 
         def take_max_action(action_value_dict):
             return max(action_value_dict, key=action_value_dict.get)
