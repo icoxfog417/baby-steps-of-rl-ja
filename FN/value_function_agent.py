@@ -30,7 +30,7 @@ class ValueFunctionAgent(FNAgent):
         states = np.vstack([e.s for e in experiences])
         self.model.named_steps["scaler"].fit(states)
 
-        # Avoid the predict before fit. Use a little sample to fit.
+        # Avoid the predict before fit.
         self.update([experiences[0]], gamma=0)
         self.initialized = True
         print("Done initialize. From now, begin training!")
