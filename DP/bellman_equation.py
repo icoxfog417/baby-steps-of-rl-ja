@@ -1,5 +1,5 @@
 def V(s, gamma=0.99):
-    V = R(s) + gamma * E_at_next(s)
+    V = R(s) + gamma * max_V_on_next_state(s)
     return V
 
 
@@ -12,7 +12,7 @@ def R(s):
         return 0
 
 
-def E_at_next(s):
+def max_V_on_next_state(s):
     # If game end, expected value is 0
     if s.endswith("end"):
         return 0
