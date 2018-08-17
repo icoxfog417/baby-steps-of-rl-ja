@@ -1,14 +1,13 @@
 import os
 import argparse
 import random
-from collections import deque
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.externals import joblib
 import tensorflow as tf
 from tensorflow.python import keras as K
 import gym
-from fn_framework import FNAgent, Trainer, Observer, Experience
+from fn_framework import FNAgent, Trainer, Observer
 
 
 class PolicyGradientContinuousAgent(FNAgent):
@@ -36,49 +35,55 @@ class PolicyGradientContinuousAgent(FNAgent):
         fname += "_scaler.pkl"
         return fname
 
-    def initialize(self, experiences, optimizer):
+    def initialize(self, experiences, actor_optimizer, critic_optimizer):
         self.scaler = StandardScaler()
         states = np.vstack([e.s for e in experiences])
         self.scaler.fit(states)
         feature_size = states.shape[1]
 
-        normal = K.initializers.glorot_normal()
-        base = K.models.Sequential([
-            K.layers.Dense(10, activation="relu", input_shape=(feature_size,),
-                           kernel_initializer=normal)
-        ])
-        mu = K.layers.Dense(1, activation="linear",
-                            kernel_initializer=normal)(base.output)
-        sigma = K.layers.Dense(1, activation="softplus",
-                               kernel_initializer=normal)(base.output)
+        base = K.models.Sequential()
+        base.add(K.layers.Dense(24, activation="relu",
+                                input_shape=(feature_size,)))
 
+        # Actor
+        #  define action distribution
+        mu = K.layers.Dense(1, activation="linear")(base.output)
+        sigma = K.layers.Dense(1, activation="softplus")(base.output)
         self.dist_model = K.Model(inputs=base.input, outputs=[mu, sigma])
 
+        #  sample action from distribution
         low, high = self.actions
         action = SampleLayer(low, high)((mu, sigma))
         self.model = K.Model(inputs=base.input, outputs=[action])
-        self.set_updater(optimizer)
+
+        # Critic
+        self.critic = K.models.Sequential([
+            K.layers.Dense(24, activation="relu", input_shape=(feature_size,)),
+            K.layers.Dense(1, activation="linear")
+        ])
+        self.set_updater(actor_optimizer)
+        self.critic.compile(loss="mse", optimizer=critic_optimizer)
         self.initialized = True
         print("Done initialize. From now, begin training!")
 
     def set_updater(self, optimizer):
         actions = tf.placeholder(shape=(None), dtype="float32")
-        rewards = tf.placeholder(shape=(None), dtype="float32")
+        td_error = tf.placeholder(shape=(None), dtype="float32")
 
+        # Actor loss
         mu, sigma = self.dist_model.output
         action_dist = tf.distributions.Normal(loc=tf.squeeze(mu),
                                               scale=tf.squeeze(sigma))
-        action_probs = action_dist.prob(actions)
-        clipped = tf.clip_by_value(action_probs, 1e-10, 1.0)
-        loss = - tf.log(clipped) * tf.exp(rewards)
+        action_probs = action_dist.log_prob(tf.squeeze(actions))
+        loss = - action_probs * td_error
         loss = tf.reduce_mean(loss)
 
         updates = optimizer.get_updates(loss=loss,
                                         params=self.model.trainable_weights)
         self._updater = K.backend.function(
                                         inputs=[self.model.input,
-                                                actions, rewards],
-                                        outputs=[loss, action_probs, mu, sigma],
+                                                actions, td_error],
+                                        outputs=[loss, tf.exp(action_probs), mu, sigma],
                                         updates=updates)
 
     def policy(self, s):
@@ -86,20 +91,31 @@ class PolicyGradientContinuousAgent(FNAgent):
             low, high = self.actions
             return np.random.uniform(low, high)
         else:
-            normalized = self.scaler.transform(s)
-            action = self.model.predict(normalized)[0]
-            return action[0]
+            normalized_s = self.scaler.transform(s)
+            action = self.model.predict(normalized_s)[0]
+            return action
 
-    def update(self, states, actions, rewards):
-        normalizeds = self.scaler.transform(states)
-        actions = np.array(actions)
-        rewards = np.array(rewards)
+    def update(self, batch, gamma):
+        states = np.vstack([e.s for e in batch])
+        normalized_s = self.scaler.transform(states)
+        actions = np.vstack([e.a for e in batch])
 
-        loss, probs, mu, sigma = self._updater([normalizeds, actions, rewards])
-        #print(loss)
+        # Calculate value
+        next_states = np.vstack([e.n_s for e in batch])
+        normalized_n_s = self.scaler.transform(next_states)
+        n_s_values = self.critic.predict(normalized_n_s)
+        values = [b.r + gamma * (0 if b.d else 1) * n_s_values
+                  for b, n_s_values in zip(batch, n_s_values)]
+        values = np.array(values)
+
+        td_error = values - self.critic.predict(normalized_s)
+        a_loss, probs, mu, sigma = self._updater([normalized_s, actions, td_error])
+        c_loss = self.critic.train_on_batch(normalized_s, values)
+
         """
+        print([a_loss, c_loss])
         for x in zip(actions, mu, sigma, probs):
-            print(x)
+            print("Took action {}. (mu={}, sigma={}, its prob={})".format(*x))
         """
 
 
@@ -115,11 +131,10 @@ class SampleLayer(K.layers.Layer):
 
     def call(self, x):
         mu, sigma = x
-        epsilon_dist = tf.distributions.Normal(loc=0., scale=1.0)
-        _sigma = K.layers.Lambda(lambda x: epsilon_dist.sample(1) * x)(sigma)
-        action = mu + _sigma
-        action = tf.clip_by_value(action, self.low, self.high)
-        return action
+        actions = tf.distributions.Normal(loc=tf.squeeze(mu),
+                                          scale=tf.squeeze(sigma)).sample([1])
+        actions = tf.clip_by_value(actions, self.low, self.high)
+        return actions
 
     def compute_output_shape(self, input_shape):
         return (input_shape[0], 1)
@@ -138,17 +153,15 @@ class PendulumObserver(Observer):
         return self.transform(n_state), reward, done, info
 
     def transform(self, state):
-        return np.array(state).reshape((1, -1))
+        return np.reshape(state, (1, -1))
 
 
 class PolicyGradientContinuousTrainer(Trainer):
 
-    def __init__(self, buffer_size=1024, batch_size=32,
+    def __init__(self, buffer_size=4096, batch_size=32,
                  gamma=0.9, report_interval=10, log_dir=""):
         super().__init__(buffer_size, batch_size, gamma,
                          report_interval, log_dir)
-        self._reward_scaler = None
-        self.d_experiences = deque(maxlen=buffer_size)
 
     def train(self, env, episode_count=220, epsilon=0.1, initial_count=-1,
               render=False):
@@ -158,48 +171,19 @@ class PolicyGradientContinuousTrainer(Trainer):
         self.train_loop(env, agent, episode_count, initial_count, render)
         return agent
 
-    def episode_begin(self, episode, agent):
-        self.experiences = []
+    def begin_train(self, episode, agent):
+        actor_optimizer = K.optimizers.Adam(1e-3)
+        critic_optimizer = K.optimizers.Adam(0.1)
+        agent.initialize(self.experiences, actor_optimizer, critic_optimizer)
 
     def step(self, episode, step_count, agent, experience):
-        if agent.initialized:
-            agent.update(*self.make_batch())
-
-    def make_batch(self):
-        batch = random.sample(self.d_experiences, self.batch_size)
-        states = np.vstack([e.s for e in batch])
-        actions = [e.a for e in batch]
-        rewards = [e.r for e in batch]
-        rewards = np.array(rewards).reshape((-1, 1))
-        rewards = self._reward_scaler.transform(rewards).flatten()
-        return states, actions, rewards
-
-    def begin_train(self, episode, agent):
-        optimizer = K.optimizers.Adam(clipnorm=1.0)
-        agent.initialize(self.d_experiences, optimizer)
-        self._reward_scaler = StandardScaler(with_mean=False)
-        rewards = np.array([[e.r] for e in self.d_experiences])
-        self._reward_scaler.fit(rewards)
+        if self.training:
+            batch = random.sample(self.experiences, self.batch_size)
+            agent.update(batch, self.gamma)
 
     def episode_end(self, episode, step_count, agent):
-        rewards = [e.r for e in self.experiences]
-        self.reward_log.append(sum(rewards))
-        discounteds = []
-        for t, r in enumerate(rewards):
-            d_r = [_r * (self.gamma ** i) for i, _r in
-                   enumerate(rewards[t:])]
-            d_r = sum(d_r)
-            discounteds.append(d_r)
-
-        for i, e in enumerate(self.experiences):
-            s, a, r, n_s, d = e
-            d_r = discounteds[i]
-            d_e = Experience(s, a, d_r, n_s, d)
-            self.d_experiences.append(d_e)
-
-        if not self.training and len(self.d_experiences) == self.buffer_size:
-            self.begin_train(i, agent)
-            self.training = True
+        reward = sum([e.r for e in self.get_recent(step_count)])
+        self.reward_log.append(reward)
 
         if self.is_event(episode, self.report_interval):
             recent_rewards = self.reward_log[-self.report_interval:]
@@ -215,7 +199,7 @@ def main(play):
         agent = PolicyGradientContinuousAgent.load(env, path)
         agent.play(env)
     else:
-        trained = trainer.train(env, episode_count=500)
+        trained = trainer.train(env, episode_count=100, render=False)
         trainer.logger.plot("Rewards", trainer.reward_log,
                             trainer.report_interval)
         trained.save(path)
