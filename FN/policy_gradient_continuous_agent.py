@@ -93,7 +93,7 @@ class PolicyGradientContinuousAgent(FNAgent):
         else:
             normalized_s = self.scaler.transform(s)
             action = self.model.predict(normalized_s)[0]
-            return action
+            return action[0]
 
     def update(self, batch, gamma):
         states = np.vstack([e.s for e in batch])
@@ -134,7 +134,7 @@ class SampleLayer(K.layers.Layer):
         actions = tf.distributions.Normal(loc=tf.squeeze(mu),
                                           scale=tf.squeeze(sigma)).sample([1])
         actions = tf.clip_by_value(actions, self.low, self.high)
-        return actions
+        return tf.reshape(actions, (-1, 1))
 
     def compute_output_shape(self, input_shape):
         return (input_shape[0], 1)
