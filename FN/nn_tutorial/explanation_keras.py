@@ -5,8 +5,10 @@ model = K.Sequential([
     K.layers.Dense(units=4, input_shape=((2, ))),
 ])
 
-# Make batch size = 3 data (dimension of x is 2).
-batch = np.random.rand(3, 2)
+weight, bias = model.layers[0].get_weights()
+print("Weight shape is {}.".format(weight.shape))
+print("Bias shape is {}.".format(bias.shape))
 
-y_output = model.predict(batch)
-print(y_output.shape)  # Will be (3, 4)
+x = np.random.rand(1, 2)
+y = model.predict(x)
+print("x is ({}) and y is ({})".format(x.shape, y.shape))
