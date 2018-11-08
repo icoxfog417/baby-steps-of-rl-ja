@@ -8,11 +8,11 @@
 
 Day1の実装では、強化学習が前提とする問題設定である「マルコフ決定過程(Markov Decision Process: MDP)」の仕組みについて学びます。
 
-* [MDPの実装](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/DP/environment.py)
+* [MDPの実装](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/DP/environment.py)
 
 ### Day2: 強化学習の解法(1): 環境から計画を立てる
 
-Day2では、MDPの環境を実際に解いてみます。それにあたり、まず行動の指針となる「価値」を定義する必要がありました。その後に、実際「動的計画法(Dynamic Programming: DP)」を用いて環境を解いてみます。動的計画法はモデルベースと呼ばれる手法の一種で、モデル(=環境の遷移関数と報酬関数)から行動計画を作成します。
+Day2では、MDPの環境を実際に解いてみます。それにあたり、まず行動の指針となる「価値」を定義する必要がありました。その後に、実際「動的計画法(Dynamic Programming: DP)」を用いて環境を解いてみます。動的計画法はモデルベースと呼ばれる手法の一種で、モデル(=環境の遷移関数と報酬関数)から行動計画を作成します。
 
 * [価値の定義: Bellman Equation](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/DP/bellman_equation.py)
 * [価値反復法(Value Iteration)、戦略反復法(Policy Iteration)](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/DP/planner.py)
