@@ -28,7 +28,7 @@ Day1の実装では、強化学習が前提とする問題設定である「マ�
 
 Day2では、MDPの環境を実際に解いてみます。まず、行動の指針となる「価値」を定義します。その後に、「動的計画法(Dynamic Programming: DP)」を用いて環境を解いてみます。動的計画法はモデルベースと呼ばれる手法の一種で、モデル(=環境の遷移関数と報酬関数)から行動計画を作成します。
 
-![be.PNG](./doc/be.PNG)
+<img src="./doc/be.PNG" width=800 alt="be.PNG"/>
 
 * [価値の定義: Bellman Equation](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/DP/bellman_equation.py)
 * [価値反復法(Value Iteration)、戦略反復法(Policy Iteration)](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/DP/planner.py)
@@ -41,8 +41,7 @@ python DP/run_server.py
 
 http://localhost:8888/
 
-
-![application.PNG](./doc/application.PNG)
+<img src="./doc/application.PNG" width=600 alt="application.PNG"/>
 
 パラメーターを変えながら実行することで、計算の過程を確認してみてください。
 
@@ -62,7 +61,7 @@ Day3では経験から計画を立てる方法を学びます。経験から計�
 
 「経験」とは、具体的には見積もった価値と実際の価値との差異でした。この差異(=誤差)を小さくすることが学習の本質となります。
 
-![td.PNG](./doc/td.PNG)
+<img src="./doc/td.PNG" width=800 alt="td.PNG"/>
 
 ### Day4: 強化学習に対するニューラルネットワークの適用
 
@@ -76,7 +75,7 @@ Day4では、強化学習をパラメーターを持った関数=ニューラル
 
 これまでの手法、またDNN(ディープニューラルネットワーク)を利用した手法、双方を含めた手法の系統図は以下のようになっています。
 
-![rl_ways.PNG](./doc/rl_ways.PNG)
+<img src="./doc/rl_ways.PNG" width=800 alt="rl_ways.PNG"/>
 
 ### Day5: 深層強化学習の弱点
 
@@ -93,7 +92,7 @@ Day4の実装では、こうした現実に対応するため、実装を工夫�
 * モジュール化することでテストしやすくする
 * ログをしっかりとる
 
-![train_architecture.PNG](./doc/train_architecture.PNG)
+<img src="./doc/train_architecture.PNG" width=800 alt="train_architecture.PNG"/>
 
 
 ### Day6: 強化学習の弱点を克服するための手法
@@ -112,17 +111,18 @@ Day6では、Day5で紹介した弱点に対する根本的な対処方法(ア�
 
 なお、サンプル効率については「環境認識の改善」以外に多くの方法があります。以下が、様々な手法をまとめたものになります。
 
-![sample_improve.PNG](./doc/sample_improve.PNG)
+<img src="./doc/sample_improve.PNG" width=600 alt="sample_improve.PNG"/>
 
 ### Day7: 強化学習の活用領域
 
 Day7では強化学習を活用する方法を探ります。具体的には、強化学習を活用する観点を整理し、観点ごとの事例、開発を支援ツールなどをまとめています。
 
-![rl_application.PNG](./doc/rl_application.PNG)
+<img src="./doc/rl_application.PNG" width=800 alt="rl_application.PNG"/>
+
 
 ## Setup
 
-セットアップには、[Miniconda](https://conda.io/miniconda.html)を使用します。その他の環境を使用する場合は、適宜読み替えを行ってください。
+セットアップには、[Miniconda](https://conda.io/miniconda.html)を使用します。また、Gitも使用します。そのため、Miniconda、Git、2つのインストールを行っておいてください。Miniconda以外の環境を使用する場合は、適宜読み替えを行ってください。
 
 動作確認環境(修正中)
 
