@@ -31,8 +31,8 @@ class Action(Enum):
 class Environment():
 
     def __init__(self, grid, move_prob=0.8):
-        # Grid is 2d-array, and each value treated as attribute.
-        # attribute is
+        # grid is 2d-array. Its values are treated as an attribute.
+        # Kinds of attribute is following.
         #  0: ordinary cell
         #  -1: damage cell (game end)
         #  1: reward cell (game end)
@@ -40,12 +40,13 @@ class Environment():
         self.grid = grid
         self.agent_state = State()
 
-        # Default reward is minus like poison swamp.
-        # It means agent have to reach the goal fast!
+        # Default reward is minus. Just like a poison swamp.
+        # It means the agent has to reach the goal fast!
         self.default_reward = -0.04
 
-        # Agent can move to decided direction in move_prob.
-        # It means agent will move different direction in (1 - move_prob).
+        # Agent can move to a selected direction in move_prob.
+        # It means the agent will move different direction
+        # in (1 - move_prob).
         self.move_prob = move_prob
         self.reset()
 
@@ -67,7 +68,7 @@ class Environment():
         states = []
         for row in range(self.row_length):
             for column in range(self.column_length):
-                # Avoid the Block Cell
+                # Block cells are not included to the state.
                 if self.grid[row][column] != 9:
                     states.append(State(row, column))
         return states
@@ -75,7 +76,7 @@ class Environment():
     def transit_func(self, state, action):
         transition_probs = {}
         if not self.can_action_at(state):
-            # Already on the terminal cell
+            # Already on the terminal cell.
             return transition_probs
 
         opposite_direction = Action(action.value * -1)
@@ -107,7 +108,7 @@ class Environment():
 
         next_state = state.clone()
 
-        # Move state by action
+        # Execute an action (move).
         if action == Action.UP:
             next_state.row -= 1
         elif action == Action.DOWN:
@@ -117,13 +118,13 @@ class Environment():
         elif action == Action.RIGHT:
             next_state.column += 1
 
-        # Check the out of grid
+        # Check whether a state is out of the grid.
         if not (0 <= next_state.row < self.row_length):
             next_state = state
         if not (0 <= next_state.column < self.column_length):
             next_state = state
 
-        # Check the Agent bumped the block
+        # Check whether the agent bumped a block cell.
         if self.grid[next_state.row][next_state.column] == 9:
             next_state = state
 
@@ -133,21 +134,21 @@ class Environment():
         reward = self.default_reward
         done = False
 
-        # Check the attribute of next state
+        # Check an attribute of next state.
         attribute = self.grid[state.row][state.column]
         if attribute == 1:
-            # Get treasure! and game ends.
+            # Get reward! and the game ends.
             reward = 1
             done = True
         elif attribute == -1:
-            # Go to hell! and the game ends.
+            # Get damage! and the game ends.
             reward = -1
             done = True
 
         return reward, done
 
     def reset(self):
-        # Locate agent at lower left corner
+        # Locate the agent at lower left corner.
         self.agent_state = State(self.row_length - 1, 0)
         return self.agent_state
 
@@ -172,4 +173,3 @@ class Environment():
         next_state = np.random.choice(next_states, p=probs)
         reward, done = self.reward_func(next_state)
         return next_state, reward, done
-

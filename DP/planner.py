@@ -39,7 +39,7 @@ class ValuteIterationPlanner(Planner):
         actions = self.env.actions
         V = {}
         for s in self.env.states:
-            # Initialize each state's expected reward
+            # Initialize each state's expected reward.
             V[s] = 0
 
         while True:
@@ -61,7 +61,6 @@ class ValuteIterationPlanner(Planner):
             if delta < threshold:
                 break
 
-        # Turn dictionary to grid
         V_grid = self.dict_to_grid(V)
         return V_grid
 
@@ -80,13 +79,14 @@ class PolicyIterationPlanner(Planner):
         for s in states:
             self.policy[s] = {}
             for a in actions:
-                # Initialize policy. First each action is taken uniformly.
+                # Initialize policy.
+                # At first, each action is taken uniformly.
                 self.policy[s][a] = 1 / len(actions)
 
     def estimate_by_policy(self, gamma, threshold):
         V = {}
         for s in self.env.states:
-            # Initialize each state's expected reward
+            # Initialize each state's expected reward.
             V[s] = 0
 
         while True:
@@ -118,15 +118,15 @@ class PolicyIterationPlanner(Planner):
 
         while True:
             update_stable = True
-            # Estimate expected rewards under current policy
+            # Estimate expected rewards under current policy.
             V = self.estimate_by_policy(gamma, threshold)
             self.log.append(self.dict_to_grid(V))
 
             for s in states:
-                # Get action following to the policy (choose max prob's action)
+                # Get an action following to the current policy.
                 policy_action = take_max_action(self.policy[s])
 
-                # Compare with other actions
+                # Compare with other actions.
                 action_rewards = {}
                 for a in actions:
                     r = 0

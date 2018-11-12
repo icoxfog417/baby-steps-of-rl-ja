@@ -13,42 +13,48 @@ def R(s):
 
 
 def max_V_on_next_state(s):
-    # If game end, expected value is 0
-    if s.endswith("end"):
+    # If game end, expected value is 0.
+    if s in ["happy_end", "bad_end"]:
         return 0
 
     actions = ["up", "down"]
     values = []
     for a in actions:
-        transitions = transition_func(s, a)
+        transition_probs = transit_func(s, a)
         v = 0
-        for prob, next_state in transitions:
+        for next_state in transition_probs:
+            prob = transition_probs[next_state]
             v += prob * V(next_state)
         values.append(v)
     return max(values)
 
 
-def transition_func(s, a):
+def transit_func(s, a):
     """
     Make next state by adding action str to state.
-    ex: s = 'state', a = 'up' => 'state_up'
-        s = 'state_up', a = 'down' => 'state_up_down'
-
-    If the action count == 5, ends the game.
+    ex: (s = 'state', a = 'up') => 'state_up'
+        (s = 'state_up', a = 'down') => 'state_up_down'
     """
 
-    if len(s.split("_")) == 5:
-        # If up occurs >= 4, happy end!
-        up_count = sum([1 if s == "up" else 0 for s in s.split("_")])
-        ending = "happy_end" if up_count >= 4 else "bad_end"
+    actions = s.split("_")[1:]
+    LIMIT_GAME_COUNT = 5
+    HAPPY_END_BORDER = 4
+    MOVE_PROB = 0.9
 
-        return [(1.0, ending)]
+    def next_state(state, action):
+        return "_".join([state, action])
+
+    if len(actions) == LIMIT_GAME_COUNT:
+        up_count = sum([1 if a == "up" else 0 for a in actions])
+        state = "happy_end" if up_count >= HAPPY_END_BORDER else "bad_end"
+        prob = 1.0
+        return {state: prob}
     else:
         opposite = "up" if a == "down" else "down"
-        return [
-                (0.9, s + "_" + a),
-                (0.1, s + "_" + opposite)
-            ]
+        return {
+            next_state(s, a): MOVE_PROB,
+            next_state(s, opposite): 1 - MOVE_PROB
+        }
 
 
 if __name__ == "__main__":

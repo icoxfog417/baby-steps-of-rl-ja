@@ -146,6 +146,11 @@ activate rl-book  # Mac/Linuxの場合 source activate rl-book
 
 Pythonを3.6に指定しているのは、執筆時点のTensorFlowが3.7に対応していないためです。[こちらのIssue](https://github.com/tensorflow/tensorflow/issues/20517)がCloseしたら、指定は外して問題ないはずです。
 
+`welcome.py`を実行してゲーム画面が立ち上がればセットアップはOKです。
+
+```
+python welcome.py
+```
 
 ## Support Content
 

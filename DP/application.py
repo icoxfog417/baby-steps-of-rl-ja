@@ -14,19 +14,22 @@ class IndexHandler(tornado.web.RequestHandler):
 class PlanningHandler(tornado.web.RequestHandler):
 
     def post(self):
-        data = tornado.escape.json_decode(self.request.body)
+        data = tornado.escape.json_decode(self.request.body) 
         grid = data["grid"]
-        move_prob = 0.8
+        plan_type = data["plan"]
+        move_prob = 0.8  # default value
+
         try:
             move_prob = float(data["prob"])
-        except ValueError as ex:
+        except ValueError:
             pass
-        plan_type = data["plan"]
+
         env = Environment(grid, move_prob=move_prob)
         if plan_type == "value":
             planner = ValuteIterationPlanner(env)
         elif plan_type == "policy":
             planner = PolicyIterationPlanner(env)
+
         result = planner.plan()
         planner.log.append(result)
         self.write({"log": planner.log})
