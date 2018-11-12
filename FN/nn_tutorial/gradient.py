@@ -1,6 +1,4 @@
-from math import pi
 import tensorflow as tf
-import matplotlib.pyplot as plt
 
 
 tf.enable_eager_execution()

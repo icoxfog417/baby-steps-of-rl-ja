@@ -1,7 +1,7 @@
 import numpy as np
 from tensorflow.python import keras as K
 
-# 2-layer neural network
+# 2-layer neural network.
 model = K.Sequential([
     K.layers.Dense(units=4, input_shape=((2, )),
                    activation="sigmoid"),

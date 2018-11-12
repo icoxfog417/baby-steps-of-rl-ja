@@ -177,7 +177,7 @@ class CatcherObserver(Observer):
         else:
             self._frames.append(normalized)
         feature = np.array(self._frames)
-        # Convert the feature shape (f, w, h) => (w, h, f)
+        # Convert the feature shape (f, w, h) => (w, h, f).
         feature = np.transpose(feature, (1, 2, 0))
 
         return feature
@@ -241,7 +241,7 @@ class ActorCriticTrainer(Trainer):
         self.logger.set_model(agent.model)
         agent.epsilon = self.initial_epsilon
         self.training_episode -= episode
-        print("Done initialize. From now, begin training!")
+        print("Done initialization. From now, begin training!")
 
     def episode_end(self, episode, step_count, agent):
         rewards = [e.r for e in self.experiences]
@@ -291,7 +291,8 @@ class ActorCriticTrainer(Trainer):
 
 
 def main(play, is_test):
-    trainer = ActorCriticTrainer(file_name="a2c_agent.h5")
+    file_name = "a2c_agent.h5" if not is_test else "a2c_agent_test.h5"
+    trainer = ActorCriticTrainer(file_name=file_name)
     path = trainer.logger.path_of(trainer.file_name)
     agent_class = ActorCriticAgent
 

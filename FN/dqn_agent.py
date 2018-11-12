@@ -2,10 +2,7 @@ import random
 import argparse
 from collections import deque
 import numpy as np
-import tensorflow as tf
 from tensorflow.python import keras as K
-from tensorflow.python.keras._impl.keras.models import clone_model
-from sklearn.preprocessing import StandardScaler
 from PIL import Image
 import gym
 import gym_ple
@@ -24,7 +21,7 @@ class DeepQNetworkAgent(FNAgent):
         self.make_model(feature_shape)
         self.model.compile(optimizer, loss="mse")
         self.initialized = True
-        print("Done initialize. From now, begin training!")
+        print("Done initialization. From now, begin training!")
 
     def make_model(self, feature_shape):
         normal = K.initializers.glorot_normal()
@@ -47,7 +44,7 @@ class DeepQNetworkAgent(FNAgent):
         model.add(K.layers.Dense(len(self.actions),
                                  kernel_initializer=normal))
         self.model = model
-        self._teacher_model = clone_model(self.model)
+        self._teacher_model = K.models.clone_model(self.model)
 
     def estimate(self, state):
         return self.model.predict(np.array([state]))[0]
@@ -85,7 +82,7 @@ class DeepQNetworkAgentTest(DeepQNetworkAgent):
         model.add(K.layers.Dense(len(self.actions), kernel_initializer=normal,
                                  activation="relu"))
         self.model = model
-        self._teacher_model = clone_model(self.model)
+        self._teacher_model = K.models.clone_model(self.model)
 
 
 class CatcherObserver(Observer):
@@ -108,7 +105,7 @@ class CatcherObserver(Observer):
         else:
             self._frames.append(normalized)
         feature = np.array(self._frames)
-        # Convert the feature shape (f, w, h) => (w, h, f)
+        # Convert the feature shape (f, w, h) => (w, h, f).
         feature = np.transpose(feature, (1, 2, 0))
 
         return feature
@@ -182,7 +179,8 @@ class DeepQNetworkTrainer(Trainer):
 
 
 def main(play, is_test):
-    trainer = DeepQNetworkTrainer(file_name="dqn_agent.h5")
+    file_name = "dqn_agent.h5" if not is_test else "dqn_agent_test.h5"
+    trainer = DeepQNetworkTrainer(file_name=file_name)
     path = trainer.logger.path_of(trainer.file_name)
     agent_class = DeepQNetworkAgent
 

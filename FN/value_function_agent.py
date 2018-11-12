@@ -33,7 +33,7 @@ class ValueFunctionAgent(FNAgent):
         # Avoid the predict before fit.
         self.update([experiences[0]], gamma=0)
         self.initialized = True
-        print("Done initialize. From now, begin training!")
+        print("Done initialization. From now, begin training!")
 
     def estimate(self, s):
         estimated = self.model.predict(s)[0]

@@ -47,7 +47,7 @@ class PolicyGradientAgent(FNAgent):
         ])
         self.set_updater(optimizer)
         self.initialized = True
-        print("Done initialize. From now, begin training!")
+        print("Done initialization. From now, begin training!")
 
     def set_updater(self, optimizer):
         actions = tf.placeholder(shape=(None), dtype="int32")
