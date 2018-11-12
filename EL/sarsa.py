@@ -9,8 +9,8 @@ class SARSAAgent(ELAgent):
     def __init__(self, epsilon=0.1):
         super().__init__(epsilon)
 
-    def learn(self, env, episode_count=100000, gamma=0.9,
-              learning_rate=0.1, render=False, report_interval=100):
+    def learn(self, env, episode_count=1000, gamma=0.9,
+              learning_rate=0.1, render=False, report_interval=50):
         self.init_log()
         actions = list(range(env.action_space.n))
         self.Q = defaultdict(lambda: [0] * len(actions))
@@ -39,7 +39,7 @@ class SARSAAgent(ELAgent):
 def train():
     agent = SARSAAgent()
     env = gym.make("FrozenLakeEasy-v0")
-    agent.learn(env, episode_count=3000)
+    agent.learn(env, episode_count=500)
     show_q_value(agent.Q)
     agent.show_reward_log()
 

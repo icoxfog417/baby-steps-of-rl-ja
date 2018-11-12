@@ -10,8 +10,8 @@ class MonteCarloAgent(ELAgent):
     def __init__(self, epsilon=0.1):
         super().__init__(epsilon)
 
-    def learn(self, env, episode_count=100000, gamma=0.9,
-              render=False, report_interval=100):
+    def learn(self, env, episode_count=1000, gamma=0.9,
+              render=False, report_interval=50):
         self.init_log()
         actions = list(range(env.action_space.n))
         self.Q = defaultdict(lambda: [0] * len(actions))
@@ -20,7 +20,7 @@ class MonteCarloAgent(ELAgent):
         for e in range(episode_count):
             s = env.reset()
             done = False
-            # Play until the end of episode
+            # Play until the end of episode.
             experience = []
             while not done:
                 if render:
@@ -32,17 +32,17 @@ class MonteCarloAgent(ELAgent):
             else:
                 self.log(reward)
 
-            # Evaluate each state, action
+            # Evaluate each state, action.
             for i, x in enumerate(experience):
                 s, a = x["state"], x["action"]
 
-                # Calculate discounted future reward of s
+                # Calculate discounted future reward of s.
                 G, t = 0, 0
                 for j in range(i, len(experience)):
                     G += math.pow(gamma, t) * experience[j]["reward"]
                     t += 1
 
-                N[s][a] += 1  # count s, a pair
+                N[s][a] += 1  # count of s, a pair
                 alpha = 1 / N[s][a]
                 self.Q[s][a] += alpha * (G - self.Q[s][a])
 
@@ -53,7 +53,7 @@ class MonteCarloAgent(ELAgent):
 def train():
     agent = MonteCarloAgent(epsilon=0.1)
     env = gym.make("FrozenLakeEasy-v0")
-    agent.learn(env, episode_count=3000)
+    agent.learn(env, episode_count=500)
     show_q_value(agent.Q)
     agent.show_reward_log()
 

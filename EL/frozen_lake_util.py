@@ -12,10 +12,12 @@ def show_q_value(Q):
     Show Q-values for FrozenLake-v0.
     To show each action's evaluation,
     a state is shown as 3 x 3 matrix like following.
-    XoX Up,
-    oco Left, Center(set mean value), Right
-    XoX Down
-    actions are located on 3 x 3 grid.
+
+    +---+---+---+
+    |   | u |   |  u: up value
+    | l | m | r |  l: left value, r: right value, m: mean value
+    |   | d |   |  d: down value
+    +---+---+---+
     """
     env = gym.make("FrozenLake-v0")
     nrow = env.unwrapped.nrow
@@ -35,15 +37,14 @@ def show_q_value(Q):
                 state_exist = True
 
             if state_exist:
-                # In the display map, vertical index reverse.
+                # At the display map, the vertical index is reversed.
                 _r = 1 + (nrow - 1 - r) * state_size
                 _c = 1 + c * state_size
                 reward_map[_r][_c - 1] = Q[s][0]  # LEFT = 0
                 reward_map[_r - 1][_c] = Q[s][1]  # DOWN = 1
                 reward_map[_r][_c + 1] = Q[s][2]  # RIGHT = 2
                 reward_map[_r + 1][_c] = Q[s][3]  # UP = 3
-                # Center
-                reward_map[_r][_c] = np.mean(Q[s])
+                reward_map[_r][_c] = np.mean(Q[s])  # Center
 
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)

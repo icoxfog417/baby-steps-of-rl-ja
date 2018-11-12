@@ -11,8 +11,8 @@ class CompareAgent(ELAgent):
         self.q_learning = q_learning
         super().__init__(epsilon)
 
-    def learn(self, env, episode_count=100000, gamma=0.9,
-              learning_rate=0.1, render=False, report_interval=100):
+    def learn(self, env, episode_count=1000, gamma=0.9,
+              learning_rate=0.1, render=False, report_interval=50):
         self.init_log()
         self.Q = defaultdict(lambda: [0] * len(actions))
         actions = list(range(env.action_space.n))
@@ -27,7 +27,7 @@ class CompareAgent(ELAgent):
                 n_state, reward, done, info = env.step(a)
 
                 if done and reward == 0:
-                    reward = -0.5
+                    reward = -0.5  # Reward as penalty
 
                 n_action = self.policy(n_state, actions)
 

@@ -49,7 +49,7 @@ class EpsilonGreedyAgent():
             return np.argmax(self.V)
 
     def play(self, env):
-        # Initialize estimation
+        # Initialize estimation.
         N = [0] * len(env)
         self.V = [0] * len(env)
 

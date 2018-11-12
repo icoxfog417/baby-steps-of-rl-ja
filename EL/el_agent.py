@@ -24,7 +24,7 @@ class ELAgent():
     def log(self, reward):
         self.reward_log.append(reward)
 
-    def show_reward_log(self, interval=100, episode=-1):
+    def show_reward_log(self, interval=50, episode=-1):
         if episode > 0:
             rewards = self.reward_log[-interval:]
             mean = np.round(np.mean(rewards), 3)
