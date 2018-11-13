@@ -43,6 +43,10 @@ http://localhost:8888/
 
 <img src="./doc/application.PNG" width=600 alt="application.PNG"/>
 
+* Areaで行・列を指定し、Drawのボタンを押すことで指定したサイズの迷路を作成することができます。
+* 迷路内のセルを選択した後に、Cell SettingにあるTreasure/Danger/Blockのボタンを押すことで、迷路のマスの設定を行うことができます。Treasureはプラスの、Dangerはマイナスの報酬のゴールです。Blockは、移動できないセルになります。
+* 迷路の設定ができたら、SimulationにあるValue Iteration/Policy Iterationどちらかのボタンを押すと、ボタンに応じたアルゴリズムで解いた結果が参照できます。
+
 パラメーターを変えながら実行することで、計算の過程を確認してみてください。
 
 ### Day3: 強化学習の解法(2): 経験から計画を立てる

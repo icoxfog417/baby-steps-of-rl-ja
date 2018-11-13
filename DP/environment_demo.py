@@ -8,12 +8,11 @@ class Agent():
         self.actions = env.actions
 
     def policy(self, state):
-        # This is Agent's Policy!
         return random.choice(self.actions)
 
 
 def main():
-    # Make grid maze environment
+    # Make grid environment.
     grid = [
         [0, 0, 0, 1],
         [0, 9, 0, -1],
@@ -22,9 +21,9 @@ def main():
     env = Environment(grid)
     agent = Agent(env)
 
-    # Try 10 game
+    # Try 10 game.
     for i in range(10):
-        # Initialize agent position
+        # Initialize position of agent.
         state = env.reset()
         total_reward = 0
         done = False
