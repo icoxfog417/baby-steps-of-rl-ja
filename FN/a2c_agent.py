@@ -64,16 +64,17 @@ class ActorCriticAgent(FNAgent):
                     value_loss_weight=0.5, entropy_weight=0.1):
         actions = tf.placeholder(shape=(None), dtype="int32")
         rewards = tf.placeholder(shape=(None), dtype="float32")
-        past_values = tf.placeholder(shape=(None), dtype="float32")
 
         _, action_evals, values = self.model.output
 
-        advantages = rewards - past_values
+        advantages = rewards - values
         neg_logs = tf.nn.sparse_softmax_cross_entropy_with_logits(
                         logits=action_evals, labels=actions)
 
-        policy_loss = tf.reduce_mean(neg_logs * advantages)
-        value_loss = tf.losses.mean_squared_error(rewards, values)
+        policy_loss = tf.reduce_mean(neg_logs * tf.nn.softplus(advantages))
+        action_indices = tf.stack([tf.range(tf.shape(actions)[0]), actions], axis=1)
+        value_only = rewards - tf.gather_nd(action_evals, action_indices)
+        value_loss = tf.losses.mean_squared_error(value_only, values)
         action_entropy = tf.reduce_mean(self.categorical_entropy(action_evals))
 
         loss = policy_loss + value_loss_weight * value_loss
@@ -84,23 +85,25 @@ class ActorCriticAgent(FNAgent):
 
         self._updater = K.backend.function(
                                         inputs=[self.model.input,
-                                                actions, rewards,
-                                                past_values],
+                                                actions, rewards],
                                         outputs=[loss,
-                                                 policy_loss, value_loss,
+                                                 policy_loss,
+                                                 tf.reduce_mean(neg_logs),
+                                                 tf.reduce_mean(advantages),
+                                                 value_loss,
                                                  action_entropy],
                                         updates=updates)
 
     def categorical_entropy(self, logits):
         """
-        From OpenAI A2C implementation
-        https://github.com/openai/baselines/blob/master/baselines/a2c/utils.py
+        From OpenAI baseline implementation
+        https://github.com/openai/baselines/blob/master/baselines/common/distributions.py#L192
         """
-        a0 = logits - tf.reduce_max(logits, 1, keepdims=True)
+        a0 = logits - tf.reduce_max(logits, axis=-1, keepdims=True)
         ea0 = tf.exp(a0)
-        z0 = tf.reduce_sum(ea0, 1, keepdims=True)
+        z0 = tf.reduce_sum(ea0, axis=-1, keepdims=True)
         p0 = ea0 / z0
-        return tf.reduce_sum(p0 * (tf.log(z0) - a0), 1)
+        return tf.reduce_sum(p0 * (tf.log(z0) - a0), axis=-1)
 
     def policy(self, s):
         if np.random.random() < self.epsilon or not self.initialized:
@@ -113,8 +116,8 @@ class ActorCriticAgent(FNAgent):
         action, action_evals, values = self.model.predict(np.array([s]))
         return values[0][0]
 
-    def update(self, states, actions, rewards, values):
-        return self._updater([states, actions, rewards, values])
+    def update(self, states, actions, rewards):
+        return self._updater([states, actions, rewards])
 
 
 class SampleLayer(K.layers.Layer):
@@ -183,10 +186,6 @@ class CatcherObserver(Observer):
         return feature
 
 
-ExperienceV = namedtuple("ExperienceV",
-                         ["s", "a", "r", "n_s", "d", "v"])
-
-
 class ActorCriticTrainer(Trainer):
 
     def __init__(self, buffer_size=50000, batch_size=32,
@@ -217,15 +216,19 @@ class ActorCriticTrainer(Trainer):
         return agent
 
     def episode_begin(self, episode, agent):
-        self.losses = {"loss": [], "loss_policy": [], "loss_value": [],
-                       "entropy": []}
+        self.losses = {}
+        for key in ["loss", "loss_policy", "loss_action", "loss_advantage",
+                    "loss_value", "entropy"]:
+            self.losses[key] = []
         self.experiences = []
 
     def step(self, episode, step_count, agent, experience):
         if self.training:
-            loss, pl, vl, en = agent.update(*self.make_batch())
+            loss, lp, ac, ad, vl, en = agent.update(*self.make_batch())
             self.losses["loss"].append(loss)
-            self.losses["loss_policy"].append(pl)
+            self.losses["loss_policy"].append(lp)
+            self.losses["loss_action"].append(ac)
+            self.losses["loss_advantage"].append(ad)
             self.losses["loss_value"].append(vl)
             self.losses["entropy"].append(en)
 
@@ -234,8 +237,7 @@ class ActorCriticTrainer(Trainer):
         states = [e.s for e in batch]
         actions = [e.a for e in batch]
         rewards = [e.r for e in batch]
-        values = [e.v for e in batch]
-        return states, actions, rewards, values
+        return states, actions, rewards
 
     def begin_train(self, episode, agent):
         self.logger.set_model(agent.model)
@@ -262,7 +264,7 @@ class ActorCriticTrainer(Trainer):
             s, a, r, n_s, d = e
             d_r = discounteds[i]
             v = agent.estimate(s)
-            d_e = ExperienceV(s, a, d_r, n_s, d, v)
+            d_e = Experience(s, a, d_r, n_s, d)
             self.d_experiences.append(d_e)
 
         if not self.training and len(self.d_experiences) == self.buffer_size:
