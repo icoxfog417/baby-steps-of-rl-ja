@@ -127,7 +127,7 @@ class Student():
         states = []
         actions = []
 
-        # Accumulate teacher's demonstration
+        # Collect teacher's demonstration.
         for e in range(initial_step):
             s = env.reset()
             done = False
@@ -142,7 +142,7 @@ class Student():
         self.model.partial_fit(states, actions)
 
         print("Start imitation.")
-        # Student try to learn teacher's actions
+        # Student tries to learn teacher's actions.
         step_limit = 20
         for e in range(train_step):
             s = env.reset()
@@ -166,7 +166,7 @@ class Student():
                         e, recent.mean()))
 
             with warnings.catch_warnings():
-                # It will be fixed in latest scikit-learn
+                # It will be fixed in latest scikit-learn.
                 # https://github.com/scikit-learn/scikit-learn/issues/10449
                 warnings.filterwarnings("ignore", category=DeprecationWarning)
                 self.model.partial_fit(states, actions)

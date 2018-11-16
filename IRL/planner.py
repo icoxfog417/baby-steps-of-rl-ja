@@ -128,14 +128,14 @@ class PolicyIterationPlanner(Planner):
         count = 0
         while True:
             update_stable = True
-            # Estimate expected rewards under current policy
+            # Estimate expected reward under current policy.
             V = self.estimate_by_policy(gamma, threshold)
 
             for s in self.env.states:
-                # Get action following to the policy (choose max prob's action)
+                # Get action following to the policy (choose max prob's action).
                 policy_action = self.act(s)
 
-                # Compare with other actions
+                # Compare with other actions.
                 action_rewards = np.zeros(len(self.env.actions))
                 for a in self.env.actions:
                     reward = 0
@@ -149,12 +149,12 @@ class PolicyIterationPlanner(Planner):
                 if policy_action != best_action:
                     update_stable = False
 
-                # Update policy (set best_action prob=1, otherwise=0 (greedy))
+                # Update policy (set best_action prob=1, otherwise=0 (greedy)).
                 self.policy[s] = np.zeros(len(self.env.actions))
                 self.policy[s][best_action] = 1.0
 
             if update_stable or count > self._limit_count:
-                # If policy isn't updated, stop iteration
+                # If policy isn't updated, stop iteration.
                 break
             count += 1
 
@@ -170,12 +170,12 @@ if __name__ == "__main__":
             [0, -1, 0, 0],
             [0, 0, 0, 0],
         ])
-        print("Value Iteration")
+        print("Value Iteration.")
         vp = ValuteIterationPlanner(env)
         v = vp.plan()
         print(v.reshape(env.shape))
 
-        print("Policy Iteration")
+        print("Policy Iteration.")
         pp = PolicyIterationPlanner(env)
         v = pp.plan()
         print(v.reshape(env.shape))

@@ -16,18 +16,18 @@ class MaxEntIRL():
         teacher_features = self.calculate_expected_feature(trajectories)
 
         for e in tqdm(range(epoch)):
-            # Estimate reward
+            # Estimate reward.
             rewards = state_features.dot(theta.T)
 
-            # Make policy under estimated reward
+            # Optimize policy under estimated reward.
             self.planner.reward_func = lambda s: rewards[s]
             self.planner.plan(gamma=gamma)
 
-            # Estimate feature under policy
+            # Estimate feature under policy.
             features = self.expected_features_under_policy(
                                 self.planner.policy, trajectories)
 
-            # Update to close to teacher
+            # Update to close to teacher.
             update = teacher_features - features.dot(state_features)
             theta += learning_rate * update
 
@@ -80,7 +80,7 @@ if __name__ == "__main__":
         teacher = PolicyIterationPlanner(env)
         teacher.plan()
         trajectories = []
-        print("Gather the demonstration")
+        print("Gather demonstrations of teacher.")
         for i in range(20):
             s = env.reset()
             done = False
@@ -92,7 +92,7 @@ if __name__ == "__main__":
                 s = n_s
             trajectories.append(steps)
 
-        print("Estimate reward")
+        print("Estimate reward.")
         irl = MaxEntIRL(env)
         rewards = irl.estimate(trajectories, epoch=100)
         print(rewards)

@@ -9,7 +9,7 @@ class GridWorldEnv(discrete.DiscreteEnv):
     metadata = {"render.modes": ["human", "ansi"]}
 
     def __init__(self, grid, move_prob=0.8, default_reward=0.0):
-        # Grid is 2d-array, and each value treated as attribute.
+        # grid is 2d-array, and each value treated as attribute.
         # attribute is
         #  0: ordinary cell
         #  -1: damage cell (game end)

@@ -35,13 +35,13 @@ class BayesianIRL():
                 _reward = reward + sigma * n
                 Q = get_q(_reward, gamma)
 
-                # Calculate prior (sum of log prob)
+                # Calculate prior (sum of log prob).
                 reward_prior = np.sum(self.prior_dist.logpdf(_r)
                                       for _r in _reward)
 
-                # Calculate likelihood
+                # Calculate likelihood.
                 likelihood = self.calculate_likelihood(trajectories, Q)
-                # Calculate posterior
+                # Calculate posterior.
                 posterior = likelihood + reward_prior
                 scores.append(posterior)
 
@@ -51,7 +51,7 @@ class BayesianIRL():
             noise = np.mean(noises * normalized_scores.reshape((-1, 1)),
                             axis=0)
             reward = reward + rate * noise
-            print("At iteration {} posterior={}".format(i, scores.mean()))
+            print("At iteration {} posterior={}.".format(i, scores.mean()))
 
         reward = reward.reshape(self.env.shape)
         return reward
@@ -82,7 +82,7 @@ if __name__ == "__main__":
         teacher = PolicyIterationPlanner(env)
         teacher.plan()
         trajectories = []
-        print("Gather the demonstration")
+        print("Gather demonstrations of teacher.")
         for i in range(20):
             s = env.reset()
             done = False
@@ -94,7 +94,7 @@ if __name__ == "__main__":
                 s = n_s
             trajectories.append(steps)
 
-        print("Estimate reward")
+        print("Estimate reward.")
         irl = BayesianIRL(env)
         rewards = irl.estimate(trajectories)
         print(rewards)

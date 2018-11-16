@@ -38,7 +38,7 @@ class DynaAgent():
                 a = self.policy(s)
                 n_state, reward, done, info = env.step(a)
 
-                # Update from real environment experiment
+                # Update from experiments in the real environment.
                 gain = reward + gamma * max(self.value[n_state])
                 estimated = self.value[s][a]
                 self.value[s][a] += learning_rate * (gain - estimated)
