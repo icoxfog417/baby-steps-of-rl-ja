@@ -1,7 +1,6 @@
 import random
 import argparse
 from collections import deque
-from collections import namedtuple
 import numpy as np
 import tensorflow as tf
 from tensorflow.python import keras as K
@@ -61,7 +60,7 @@ class ActorCriticAgent(FNAgent):
                              outputs=[actions, action_evals, values])
 
     def set_updater(self, optimizer,
-                    value_loss_weight=0.5, entropy_weight=0.1):
+                    value_loss_weight=1.0, entropy_weight=0.1):
         actions = tf.placeholder(shape=(None), dtype="int32")
         rewards = tf.placeholder(shape=(None), dtype="float32")
 
@@ -72,7 +71,8 @@ class ActorCriticAgent(FNAgent):
                         logits=action_evals, labels=actions)
 
         policy_loss = tf.reduce_mean(neg_logs * tf.nn.softplus(advantages))
-        action_indices = tf.stack([tf.range(tf.shape(actions)[0]), actions], axis=1)
+        batch_indices = tf.range(tf.shape(actions)[0])
+        action_indices = tf.stack([batch_indices, actions], axis=1)
         value_only = rewards - tf.gather_nd(action_evals, action_indices)
         value_loss = tf.losses.mean_squared_error(value_only, values)
         action_entropy = tf.reduce_mean(self.categorical_entropy(action_evals))
@@ -189,7 +189,7 @@ class CatcherObserver(Observer):
 class ActorCriticTrainer(Trainer):
 
     def __init__(self, buffer_size=50000, batch_size=32,
-                 gamma=0.99, initial_epsilon=0.1, final_epsilon=0.001,
+                 gamma=0.99, initial_epsilon=0.1, final_epsilon=1e-3,
                  learning_rate=1e-3, report_interval=10,
                  log_dir="", file_name=""):
         super().__init__(buffer_size, batch_size, gamma,
