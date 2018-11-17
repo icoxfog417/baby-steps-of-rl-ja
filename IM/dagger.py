@@ -27,9 +27,9 @@ class TeacherAgent():
         return agent
 
     def initialize(self, state):
-        # Only state => action projection is needed
+        # Only state => action projection is needed.
         self.model = MLPRegressor(hidden_layer_sizes=(), max_iter=1)
-        # Warmup to use predict method
+        # Warmup to use predict method.
         dummy_label = [np.random.uniform(size=len(self.actions))]
         self.model.partial_fit([state], dummy_label)
         return self
