@@ -127,7 +127,7 @@ class Student():
         states = []
         actions = []
 
-        # Collect teacher's demonstration.
+        # Collect teacher's demonstrations.
         for e in range(initial_step):
             s = env.reset()
             done = False

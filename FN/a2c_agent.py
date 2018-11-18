@@ -66,11 +66,12 @@ class ActorCriticAgent(FNAgent):
 
         _, action_evals, values = self.model.output
 
-        advantages = rewards - values
         neg_logs = tf.nn.sparse_softmax_cross_entropy_with_logits(
                         logits=action_evals, labels=actions)
+        advantages = rewards - values
 
         policy_loss = tf.reduce_mean(neg_logs * tf.nn.softplus(advantages))
+
         batch_indices = tf.range(tf.shape(actions)[0])
         action_indices = tf.stack([batch_indices, actions], axis=1)
         value_only = rewards - tf.gather_nd(action_evals, action_indices)
