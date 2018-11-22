@@ -71,11 +71,7 @@ class ActorCriticAgent(FNAgent):
         advantages = rewards - values
 
         policy_loss = tf.reduce_mean(neg_logs * tf.nn.softplus(advantages))
-
-        batch_indices = tf.range(tf.shape(actions)[0])
-        action_indices = tf.stack([batch_indices, actions], axis=1)
-        value_only = rewards - tf.gather_nd(action_evals, action_indices)
-        value_loss = tf.losses.mean_squared_error(value_only, values)
+        value_loss = tf.losses.mean_squared_error(rewards, values)
         action_entropy = tf.reduce_mean(self.categorical_entropy(action_evals))
 
         loss = policy_loss + value_loss_weight * value_loss
@@ -204,7 +200,7 @@ class ActorCriticTrainer(Trainer):
         self.losses = {}
         self._max_reward = -10
 
-    def train(self, env, episode_count=1200, initial_count=10,
+    def train(self, env, episode_count=900, initial_count=10,
               test_mode=False, render=False):
         actions = list(range(env.action_space.n))
         if not test_mode:
