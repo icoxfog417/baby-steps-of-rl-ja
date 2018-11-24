@@ -179,7 +179,6 @@ class CatcherObserver(Observer):
         feature = np.array(self._frames)
         # Convert the feature shape (f, w, h) => (w, h, f).
         feature = np.transpose(feature, (1, 2, 0))
-
         return feature
 
 
@@ -201,15 +200,17 @@ class ActorCriticTrainer(Trainer):
         self._max_reward = -10
 
     def train(self, env, episode_count=900, initial_count=10,
-              test_mode=False, render=False):
+              test_mode=False, render=False, observe_interval=100):
         actions = list(range(env.action_space.n))
         if not test_mode:
             agent = ActorCriticAgent(1.0, actions)
         else:
             agent = ActorCriticAgentTest(1.0, actions)
+            observe_interval = 0
         self.training_episode = episode_count
 
-        self.train_loop(env, agent, episode_count, initial_count, render)
+        self.train_loop(env, agent, episode_count, initial_count, render,
+                        observe_interval)
         return agent
 
     def episode_begin(self, episode, agent):
@@ -260,7 +261,6 @@ class ActorCriticTrainer(Trainer):
         for i, e in enumerate(self.experiences):
             s, a, r, n_s, d = e
             d_r = discounteds[i]
-            v = agent.estimate(s)
             d_e = Experience(s, a, d_r, n_s, d)
             self.d_experiences.append(d_e)
 

@@ -1,10 +1,12 @@
 import os
+import io
 import re
 from collections import namedtuple
 from collections import deque
 import numpy as np
 import tensorflow as tf
 from tensorflow.python import keras as K
+from PIL import Image
 import matplotlib.pyplot as plt
 
 
@@ -92,11 +94,12 @@ class Trainer():
         return snaked
 
     def train_loop(self, env, agent, episode=200, initial_count=-1,
-                   render=False):
+                   render=False, observe_interval=0):
         self.experiences = deque(maxlen=self.buffer_size)
         self.training = False
         self.training_count = 0
         self.reward_log = []
+        frames = []
 
         for i in range(episode):
             s = env.reset()
@@ -106,6 +109,11 @@ class Trainer():
             while not done:
                 if render:
                     env.render()
+                if self.training and observe_interval > 0 and\
+                   (self.training_count == 1 or
+                    self.training_count % observe_interval == 0):
+                    frames.append(s)
+
                 a = agent.policy(s)
                 n_state, reward, done, info = env.step(a)
                 e = Experience(s, a, reward, n_state, done)
@@ -128,6 +136,10 @@ class Trainer():
                     self.training = True
 
                 if self.training:
+                    if len(frames) > 0:
+                        self.logger.write_image(self.training_count,
+                                                frames)
+                        frames = []
                     self.training_count += 1
 
     def episode_begin(self, episode, agent):
@@ -237,5 +249,31 @@ class Logger():
         summary_value = summary.value.add()
         summary_value.tag = name
         summary_value.simple_value = value
+        self.writer.add_summary(summary, index)
+        self.writer.flush()
+
+    def write_image(self, index, frames):
+        # Deal with a 'frames' as a list of sequential gray scaled image.
+        last_frames = [f[:, :, -1] for f in frames]
+        scale = 1 if np.max(last_frames[0]) > 1 else 255
+        channel = 1  # gray scale
+        tag = "frames_at_training_{}".format(index)
+        values = []
+
+        for f in last_frames:
+            height, width = f.shape
+            array = np.asarray(f * scale, dtype=np.uint8)
+            image = Image.fromarray(array)
+            output = io.BytesIO()
+            image.save(output, format="PNG")
+            image_string = output.getvalue()
+            output.close()
+            image = tf.Summary.Image(
+                        height=height, width=width, colorspace=channel,
+                        encoded_image_string=image_string)
+            value = tf.Summary.Value(tag=tag, image=image)
+            values.append(value)
+
+        summary = tf.Summary(value=values)
         self.writer.add_summary(summary, index)
         self.writer.flush()
