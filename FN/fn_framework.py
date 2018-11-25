@@ -255,14 +255,19 @@ class Logger():
     def write_image(self, index, frames):
         # Deal with a 'frames' as a list of sequential gray scaled image.
         last_frames = [f[:, :, -1] for f in frames]
-        scale = 1 if np.max(last_frames[0]) > 1 else 255
+        if np.min(last_frames[-1]) < 0:
+            scale = 127 / np.abs(last_frames[-1]).max()
+            offset = 128
+        else:
+            scale = 255 / np.max(last_frames[-1])
+            offset = 0
         channel = 1  # gray scale
         tag = "frames_at_training_{}".format(index)
         values = []
 
         for f in last_frames:
             height, width = f.shape
-            array = np.asarray(f * scale, dtype=np.uint8)
+            array = np.asarray(f * scale + offset, dtype=np.uint8)
             image = Image.fromarray(array)
             output = io.BytesIO()
             image.save(output, format="PNG")
