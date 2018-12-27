@@ -172,7 +172,7 @@ http://localhost:8888/
   * 「行動した後」は、最短では1回行動した後、最長ではエピソードが終了した後となる。前者を **TD法(TD(0))** 、後者を **Monte Carlo法** と呼ぶ。長くなるほど、見積りについて予測に依存する量が少なくなる。
 
 <p align="center">
-  <img src="./doc/td.png" width=600 alt="td.png"/>
+  <img src="./doc/td.PNG" width=600 alt="td.PNG"/>
   <p align="center">経験=TD誤差</p>
 </p>
 
