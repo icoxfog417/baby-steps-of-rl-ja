@@ -1,9 +1,10 @@
 # Pythonで学ぶ強化学習 -入門から実践まで-
 
-[Pythonで学ぶ強化学習 -入門から実践まで-]()の実装コードリポジトリです。
+[Pythonで学ぶ強化学習 -入門から実践まで-](https://www.amazon.co.jp/dp/4065142989/)の実装コードリポジトリです。
 
 ## Index
 
+* [Setup](https://github.com/icoxfog417/baby-steps-of-rl-ja#setup)
 * [Day1: 強化学習の基礎](https://github.com/icoxfog417/baby-steps-of-rl-ja#day1-%E5%BC%B7%E5%8C%96%E5%AD%A6%E7%BF%92%E3%81%AE%E5%9F%BA%E7%A4%8E)
 * [Day2: 強化学習の解法(1): 環境から計画を立てる](https://github.com/icoxfog417/baby-steps-of-rl-ja#day2-%E5%BC%B7%E5%8C%96%E5%AD%A6%E7%BF%92%E3%81%AE%E8%A7%A3%E6%B3%951-%E7%92%B0%E5%A2%83%E3%81%8B%E3%82%89%E8%A8%88%E7%94%BB%E3%82%92%E7%AB%8B%E3%81%A6%E3%82%8B)
 * [Day3: 強化学習の解法(2): 経験から計画を立てる](https://github.com/icoxfog417/baby-steps-of-rl-ja#day3-%E5%BC%B7%E5%8C%96%E5%AD%A6%E7%BF%92%E3%81%AE%E8%A7%A3%E6%B3%952-%E7%B5%8C%E9%A8%93%E3%81%8B%E3%82%89%E8%A8%88%E7%94%BB%E3%82%92%E7%AB%8B%E3%81%A6%E3%82%8B)
@@ -12,21 +13,67 @@
 * [Day6: 強化学習の弱点を克服するための手法](https://github.com/icoxfog417/baby-steps-of-rl-ja#day6-%E5%BC%B7%E5%8C%96%E5%AD%A6%E7%BF%92%E3%81%AE%E5%BC%B1%E7%82%B9%E3%82%92%E5%85%8B%E6%9C%8D%E3%81%99%E3%82%8B%E3%81%9F%E3%82%81%E3%81%AE%E6%89%8B%E6%B3%95)
 * [Day7: 強化学習の活用領域](https://github.com/icoxfog417/baby-steps-of-rl-ja#day7-%E5%BC%B7%E5%8C%96%E5%AD%A6%E7%BF%92%E3%81%AE%E6%B4%BB%E7%94%A8%E9%A0%98%E5%9F%9F)
 
-[Setup](https://github.com/icoxfog417/baby-steps-of-rl-ja#setup)
-
 [Support Content](https://github.com/icoxfog417/baby-steps-of-rl-ja#support-content)
 
-### Day1: 強化学習の基礎
+## Setup
 
-Day1の実装では、強化学習が前提とする問題設定である「マルコフ決定過程(Markov Decision Process: MDP)」の仕組みについて学びます。
+サンプルコードをダウンロードするのにGit、実行をするのにPythonの環境が必要です。そのため、以下2つのソフトウェアをダウンロードし、インストールしてください。なお、本書ではPythonの環境を作成するのにMinicondaを使用します。
 
-<img src="./doc/mdp.PNG" width=800 alt="mdp.PNG"/>
+1. [Git](https://git-scm.com/)
+2. [Python (Miniconda)](https://conda.io/miniconda.html)
+  * ダウンロードするのは、Python3の方です
+
+インストールが終了したら、まずソースコードのダウンロードを行います。ターミナル/コマンドプロンプトを開き、作業するディレクトリで以下のコマンドを実行してください。
+
+```
+git clone https://github.com/icoxfog417/baby-steps-of-rl-ja.git
+```
+
+コマンドを実行すると、`baby-steps-of-rl-ja`というディレクトリが作成されていると思います。これで、ダウンロードは完了しました。ダウンロードしたフォルダに移動しましょう。
+
+```
+cd baby-steps-of-rl-ja
+```
+
+続いて、ソースコードの実行環境を作成します。実行環境を作成するのに、Minicondaをインストールすることで使えるようになる`conda`コマンドを使用します。これから、本書の実行環境である`rl-book`という環境を作成します。
+
+```
+conda create -n rl-book python=3.6
+activate rl-book  # Mac/Linuxの場合 source activate rl-book
+```
+
+`activate`を実行することで、ターミナルの先頭に`(rl-book)`がついたでしょうか。これが、実行環境が有効化されているサインです。本書のソースコードを実行する際は、まず実行環境が有効化されているか=`(rl-book)`が先頭についているか、を確認してください。なお、無効化する際は`deactivate`のコマンドを実行します。
+
+(なお、`python=3.6`と指定しているのは、執筆時点のTensorFlowがPython3.6でしか動かないためです。[#20517](https://github.com/tensorflow/tensorflow/issues/20517)がCloseされればこの指定は不要になります)。
+
+実行環境に、実行に必要なライブラリをインストールします(`(rl-book)`が先頭についているか確認して実行してください)。
+
+```
+pip install -r requirements.txt
+```
+
+以下のように、`welcome.py`を実行してみてください。ゲーム画面が立ち上がればセットアップは完了です。
+
+```
+python welcome.py
+```
+
+## Day1: 強化学習の基礎
+
+Day1では、強化学習の位置付けと強化学習の基本的な仕組みについて学びます。強化学習の位置付けとは、強化学習と他の学習方法の関係、また人工知能といったキーワードとの関係などです。強化学習では、「ある環境において得られる報酬が最大になるような行動を学習します」。この一文の中でも「環境」「報酬」「行動」というキーワードが色々出てきましたが、実際に問題を解くには報酬とはなんなのか、行動とはなんなのか・・・など、各概念について明確な定義が必要になります。「基本的な仕組み」とは強化学習における概念とそれらの関係であり、これは「**マルコフ決定過程(Markov Decision Process: MDP)**」という形でうまくまとめられています。
+
+Day1の実装では、強化学習の基本的な仕組みであるMDPを実装することで、その仕組みを理解します。
+
+<p align="center">
+  <img src="./doc/mdp.PNG" width=800 alt="mdp.PNG"/>
+  <p align="center">MDPの仕組み</p>
+</p>
 
 * [MDPの実装](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/DP/environment.py)
 
-### Day2: 強化学習の解法(1): 環境から計画を立てる
+## Day2: 強化学習の解法(1): 環境から計画を立てる
 
-Day2では、MDPの環境を実際に解いてみます。まず、行動の指針となる「価値」を定義します。その後に、「動的計画法(Dynamic Programming: DP)」を用いて環境を解いてみます。動的計画法はモデルベースと呼ばれる手法の一種で、モデル(=環境の遷移関数と報酬関数)から行動計画を作成します。
+Day2では、実際に行動を学習させてみます。Day2における行動の学習は、行動の「価値」を基準に取るべき行動を計画する形になります。そのため、まず評価基準となる「価値」がどのようなものかを学びます。その後に、計画方法である「動的計画法(Dynamic Programming: DP)」を学びます。
 
 <img src="./doc/be.PNG" width=800 alt="be.PNG"/>
 
@@ -49,7 +96,7 @@ http://localhost:8888/
 
 パラメーターを変えながら実行することで、計算の過程を確認してみてください。
 
-### Day3: 強化学習の解法(2): 経験から計画を立てる
+## Day3: 強化学習の解法(2): 経験から計画を立てる
 
 Day3では経験から計画を立てる方法を学びます。経験から計画を立てる際は、3つの観点がありました。
 
@@ -67,7 +114,7 @@ Day3では経験から計画を立てる方法を学びます。経験から計�
 
 <img src="./doc/td.PNG" width=800 alt="td.PNG"/>
 
-### Day4: 強化学習に対するニューラルネットワークの適用
+## Day4: 強化学習に対するニューラルネットワークの適用
 
 Day4では、強化学習をパラメーターを持った関数=ニューラルネットワークで実装する手法を学びます。Day3まで行動は状態/行動のテーブルから決定されていました(Q-Table)。Day4では状態を入力、行動や行動価値を出力とする関数で決定を行います。この関数としてニューラルネットワークを使用します。
 
@@ -81,7 +128,7 @@ Day4では、強化学習をパラメーターを持った関数=ニューラル
 
 <img src="./doc/rl_ways.PNG" width=800 alt="rl_ways.PNG"/>
 
-### Day5: 深層強化学習の弱点
+## Day5: 深層強化学習の弱点
 
 強化学習に対するDNNの適用は、良いことばかりではありません。具体的には、以下のような問題が現れます。
 
@@ -99,7 +146,7 @@ Day4の実装では、こうした現実に対応するため、実装を工夫�
 <img src="./doc/train_architecture.PNG" width=800 alt="train_architecture.PNG"/>
 
 
-### Day6: 強化学習の弱点を克服するための手法
+## Day6: 強化学習の弱点を克服するための手法
 
 Day6では、Day5で紹介した弱点に対する根本的な対処方法(アルゴリズム的な改良)を扱います。
 
@@ -117,44 +164,12 @@ Day6では、Day5で紹介した弱点に対する根本的な対処方法(ア�
 
 <img src="./doc/sample_improve.PNG" width=600 alt="sample_improve.PNG"/>
 
-### Day7: 強化学習の活用領域
+## Day7: 強化学習の活用領域
 
 Day7では強化学習を活用する方法を探ります。具体的には、強化学習を活用する観点を整理し、観点ごとの事例、開発を支援ツールなどをまとめています。
 
 <img src="./doc/rl_application.PNG" width=800 alt="rl_application.PNG"/>
 
-
-## Setup
-
-セットアップには、[Miniconda](https://conda.io/miniconda.html)を使用します。また、Gitも使用します。そのため、Miniconda、Git、2つのインストールを行っておいてください。Miniconda以外の環境を使用する場合は、適宜読み替えを行ってください。
-
-動作確認環境(修正中)
-
-* Python: 3.6
-* TensorFlow: 1.12.0
-
-セットアップ手順
-
-```
-git clone https://github.com/icoxfog417/baby-steps-of-rl-ja.git
-cd baby-steps-of-rl-ja
-conda create -n rl-book python=3.6
-activate rl-book  # Mac/Linuxの場合 source activate rl-book
-```
-
-1.	GitHubからソースコードをダウンロード
-2.	ダウンロードしたソースコードのフォルダに移動
-3.	ソースコード実行用の環境(仮想環境)を作成
-4.	作成した仮想環境を有効化(WindowとMac/Linuxでコマンドが異なるため注意してください)
-5.	リポジトリの実行に必要なライブラリをインストール
-
-Pythonを3.6に指定しているのは、執筆時点のTensorFlowが3.7に対応していないためです。[こちらのIssue](https://github.com/tensorflow/tensorflow/issues/20517)がCloseしたら、指定は外して問題ないはずです。
-
-`welcome.py`を実行してゲーム画面が立ち上がればセットアップはOKです。
-
-```
-python welcome.py
-```
 
 ## Support Content
 
