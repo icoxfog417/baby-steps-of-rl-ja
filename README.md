@@ -142,6 +142,42 @@ http://localhost:8888/
 
 ## Day3: 強化学習の解法(2): 経験から計画を立てる
 
+**Day3's Goals**
+
+* 経験を活用する際の3つの観点を理解する
+   1. 経験の蓄積と活用のバランス
+   2. 計画の修正を実績から行うか、予測で行うか
+   3. 経験を状態評価、戦略どちらの更新に利用するか
+* 各観点における対の関係を理解する
+* 各観点を代表する手法の実装方法を身につける
+
+**Summary**
+
+* 経験の蓄積と活用のバランス
+  * 経験を蓄積して見積り精度をあげるか、今の見積りを信頼して報酬を稼ぎに行くか
+* 計画の修正を実績から行うか、予測で行うか
+  * 実績に基づく修正を行うか、予測でも良いので早く修正するか
+* 経験を状態評価、戦略どちらの更新に利用するか
+  * Valueベースで行うか、Policyベースで行うか。あるいは両方か。
+
+<p align="center">
+  <img src="./doc/tradeoffs.png" width=600 alt="tradeoffs.png"/>
+  <p align="center">経験を活用する際の3つの観点</p>
+</p>
+
+* 「経験」とは
+  * 見積もった価値と実際の価値との差異となる
+  * ざっくりとは、「行動する前」と「行動した後」になる。「行動した後」は、行動した分だけ実際の報酬が得られるため、その分見積もりに依存する分が少なくなる
+  * 「行動する前」の時点と「行動した後」の時点の差、という時刻間の差とも言えるため、これを **TD誤差(Temporal Difference error)**と呼ぶ
+  * 「行動した後」は、最短では1回行動した後、最長ではエピソードが終了した後となる。前者を **TD法(TD(0))** 、後者を **Monte Carlo法** と呼ぶ。長くなるほど、見積りについて予測に依存する量が少なくなる。
+
+<p align="center">
+  <img src="./doc/td.png" width=600 alt="td.png"/>
+  <p align="center">経験=TD誤差</p>
+</p>
+
+**Exercises**
+
 Day3では経験から計画を立てる方法を学びます。経験から計画を立てる際は、3つの観点がありました。
 
 * 経験の蓄積と活用のバランス
@@ -153,10 +189,6 @@ Day3では経験から計画を立てる方法を学びます。経験から計�
   * [On policy: SARSA](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/EL/notebooks/SARSA.ipynb)
   * [Off policy: Q-learning](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/EL/notebooks/Q-learning.ipynb)
   * [Actor Critic](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/EL/notebooks/Actor%26Critic.ipynb)
-
-「経験」とは、具体的には見積もった価値と実際の価値との差異でした。この差異(=誤差)を小さくすることが学習の本質となります。
-
-<img src="./doc/td.PNG" width=800 alt="td.PNG"/>
 
 ## Day4: 強化学習に対するニューラルネットワークの適用
 
