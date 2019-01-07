@@ -13,8 +13,8 @@
 * [Day6: 強化学習の弱点を克服するための手法](https://github.com/icoxfog417/baby-steps-of-rl-ja#day6-%E5%BC%B7%E5%8C%96%E5%AD%A6%E7%BF%92%E3%81%AE%E5%BC%B1%E7%82%B9%E3%82%92%E5%85%8B%E6%9C%8D%E3%81%99%E3%82%8B%E3%81%9F%E3%82%81%E3%81%AE%E6%89%8B%E6%B3%95)
 * [Day7: 強化学習の活用領域](https://github.com/icoxfog417/baby-steps-of-rl-ja#day7-%E5%BC%B7%E5%8C%96%E5%AD%A6%E7%BF%92%E3%81%AE%E6%B4%BB%E7%94%A8%E9%A0%98%E5%9F%9F)
 
-[Support Content](https://github.com/icoxfog417/baby-steps-of-rl-ja#support-content)
-[誤記、注釈]()
+[Support Content](https://github.com/icoxfog417/baby-steps-of-rl-ja#support-content)  
+[誤記、注釈](https://github.com/icoxfog417/baby-steps-of-rl-ja#notation)
 
 ## Setup
 
