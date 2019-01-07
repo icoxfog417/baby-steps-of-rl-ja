@@ -278,17 +278,41 @@ Day3では経験から計画を立てる方法を学びます。経験から計�
 
 ## Day4: 強化学習に対するニューラルネットワークの適用
 
-Day4では、強化学習をパラメーターを持った関数=ニューラルネットワークで実装する手法を学びます。Day3まで行動は状態/行動のテーブルから決定されていました(Q-Table)。Day4では状態を入力、行動や行動価値を出力とする関数で決定を行います。この関数としてニューラルネットワークを使用します。
+**Day4's Goals**
 
-* [ニューラルネットワークの仕組み](https://github.com/icoxfog417/baby-steps-of-rl-ja/tree/master/FN/nn_tutorial)
-* [価値を関数から算出する](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/FN/value_function_agent.py)
-  * [価値をDNNで算出する(DQN)](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/FN/dqn_agent.py)
-* [行動を関数から決定する(戦略の関数化)](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/FN/policy_gradient_agent.py)
-  * [戦略をDNNで算出する(A2C)](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/FN/a2c_agent.py)
+* 関数として、ニューラルネットワークを適用するメリット
+* 価値評価を、パラメーターを持った関数で実装する方法
+* 戦略を、パラメーターを持った関数で実装する方法
+
+**Summary**
+
+* 価値評価/戦略の関数化
+  * Day3までは、状態における行動の価値をQ[s][a]というテーブルで管理してきた。
+  * しかし、このままでは状態数/行動数が多くなった場合に破綻することは目に見えている。テーブルを関数化することが、この組み合わせ爆発に対応するための一つの解法となる。
+  * 関数としてニューラルネットワーク/ディープニューラルネットワークを使用する強化学習を特に「深層強化学習」と呼ぶ。
+* 関数として、ニューラルネットワークを使用するメリット・デメリット
+  * 人間が実際に観測している「状態」に近いデータをエージェントの学習に使用できる。これは、DNNが特徴抽出に優れているためである(画像ならばCNNなど)。
+  * ただ、ニューラルネットワークを使うことで学習時間が長くなるなどのデメリットも発生する(詳細はDay5)。
+* 価値評価を、パラメーターを持った関数で実装する
+  * 状態を受け取り、行動価値を出力する関数(Q-function)を、ニューラルネットワークで実装する。
+  * Atariでハイスコアを出したとして話題になったDeep Q-Network以前にもニューラルネットワークを使用した研究はあったが、学習が安定しないという課題があった。Deep Q-Networkは、学習を安定させる3つの工夫( **Experience Reply** 、**Fixed Target Q-Network** 、**報酬のClipping** )を行うことでこの課題を克服している。
+* 戦略を、パラメーターを持った関数で実装する
+
+
+Day4では、強化学習をパラメーターを持った関数=ニューラルネットワークで実装する手法を学びます。Day3まで行動は状態/行動のテーブルから決定されていました(Q-Table)。Day4では状態を入力、行動や行動価値を出力とする関数で決定を行います。この関数としてニューラルネットワークを使用します。
 
 これまでの手法、またDNN(ディープニューラルネットワーク)を利用した手法、双方を含めた手法の系統図は以下のようになっています。
 
 <img src="./doc/rl_ways.PNG" width=800 alt="rl_ways.PNG"/>
+
+**Exercises**
+
+* [ニューラルネットワークの仕組み](https://github.com/icoxfog417/baby-steps-of-rl-ja/tree/master/FN/nn_tutorial)
+* [価値を関数から算出する](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/FN/value_function_agent.py)
+  * [価値をDNNで算出する(DQN)](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/FN/dqn_agent.py)
+* [戦略を関数で実装する](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/FN/policy_gradient_agent.py)
+  * [戦略をDNNで実装する(A2C)](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/FN/a2c_agent.py)
+
 
 ## Day5: 深層強化学習の弱点
 
