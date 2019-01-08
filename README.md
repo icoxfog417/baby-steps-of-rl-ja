@@ -321,15 +321,15 @@ http://localhost:8888/
 
 * [ニューラルネットワークの仕組み](https://github.com/icoxfog417/baby-steps-of-rl-ja/tree/master/FN/nn_tutorial)
 * [価値を関数から算出する](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/FN/value_function_agent.py)
-  * [価値をDNNで算出する(DQN)](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/FN/dqn_agent.py)
+  * [価値をDNNで算出する: DQN](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/FN/dqn_agent.py)
 * [戦略を関数で実装する](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/FN/policy_gradient_agent.py)
-  * [戦略をDNNで実装する(A2C)](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/FN/a2c_agent.py)
+  * [戦略をDNNで実装する: A2C](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/FN/a2c_agent.py)
 
 ## Day5: 深層強化学習の弱点
 
 **Day5's goals**
 
-強化学習、特にニューラルネットワークを利用した深層強化学習の弱点について理解する。弱点とは、以下3点である。
+強化学習、特にニューラルネットワークを利用した深層強化学習の弱点について解説する。弱点とは、以下3点である。
 
 * サンプル効率が悪い
 * 局所最適な行動に陥る、過学習することが多い
@@ -354,37 +354,77 @@ http://localhost:8888/
 
 ## Day6: 強化学習の弱点を克服するための手法
 
-Day6では、Day5で紹介した弱点に対する根本的な対処方法(アルゴリズム的な改良)を扱います。
+**Day6's goals**
 
-* サンプル効率が悪い
-  * 環境/状態の学習と、そこでの行動方法の学習との分離:「環境認識の改善」
-  * [モデルベースとの組み合わせ(Dyna)](https://github.com/icoxfog417/baby-steps-of-rl-ja/tree/master/MM)
-* 局所最適な行動に陥る、過学習することが多い
-  * 人がある程度誘導してやる: 模倣学習・逆強化学習
-  * [模倣学習 (DAgger)](https://github.com/icoxfog417/baby-steps-of-rl-ja/tree/master/IM)
-  * [逆強化学習](https://github.com/icoxfog417/baby-steps-of-rl-ja/tree/master/IRL)
-* 再現性が低い
-  * 新しい学習方法: [進化戦略](https://github.com/icoxfog417/baby-steps-of-rl-ja/tree/master/EV)
+Day6では、Day5で紹介した弱点に対する根本的な対処方法(アルゴリズム的な改良)を解説する。
 
-なお、サンプル効率については「環境認識の改善」以外に多くの方法があります。以下が、様々な手法をまとめたものになります。
+* 「サンプル効率が悪い」ことへの対処法
+* 「再現性が低い」ことへの対処法
+* 「局所最適な行動に陥る、過学習することが多い」ことへの対処法
+
+**Summary**
+
+* 「サンプル効率が悪い」ことへの対処法
+  * 強化学習におけるサンプル効率の改善は、様々な手法が提案されている(下表参照)。
+  * 本書では、そのうちの一つである「環境認識の改善」について扱う。
+  * 深層強化学習は、画面など人間が受け取るような生に近いデータを扱う。
+  * そのため、モデルにとっては「入力(画面)からの特徴抽出」と「行動の仕方」の2つを同時に学習しないといけないことになる。これが、学習効率を下げている原因と考えることができる。
+  * 「環境認識の改善」では、環境からの情報取得のサポートを行う。
+  * これには環境自体を認識しやすくする方法と、環境から得られる状態を認識しやすくする方法の2つがある。
+  * 前者は環境のシミュレーター=モデルを作成するモデルベースの手法との併用、後者は状態をよりわかりやすい表現にする「表現学習」となる。
+  * 本書では、モデルベースの併用として **Dyna** 、表現学習として **World Models** の紹介を行う。
 
 <img src="./doc/sample_improve.PNG" width=600 alt="sample_improve.PNG"/>
 
+* 「再現性が低い」ことへの対処法
+  * 再現性の低さを招いている要因の一つとして、「学習が安定しない」という問題がある。
+  * この点について、近年勾配法とは異なる最適化アルゴリズムが注目されている。それが **進化戦略** である。
+  * 勾配法が「初期状態から徐々に改善していく」というアプローチをとるのに対し、勾配法は「多くの候補から絞り込む」というアプローチを取る。
+* 「局所最適な行動に陥る、過学習することが多い」ことへの対処法
+  * これについては、「人がある程度誘導してやる」という単純な方法がある。
+  * **模倣学習** : 人がお手本を示し、それに沿うよう行動を学習させる。
+  * **逆強化学習** : 示されたお手本から報酬関数を逆算させ、それを基に行動を学習させる。
+  * 模倣学習は教師あり学習と似ているが、すべてのケースにおいてお手本を用意することは難しい(事故を回避するデモ、など)。
+  * そのため、お手本をベースにしつつもお手本以外のケースにも対応できるようになる必要がある。
+  * 逆強化学習は、基本的には 1.報酬関数を推定=> 2.報酬をもとに行動を最適化=> 3.お手本の行動とあっているか比較=> 4.報酬を更新=>1に戻る、という手順を取る(下図参照)。
+  * 通常の強化学習では2のプロセスだけで済むが、逆強化学習はこれを繰り返すことになる。そのため推定には時間がかかる(ただ、これを軽減する手法はいくつか提案されている)。
+
+<img src="./doc/irl.png" width=800 alt="irl.png"/>
+
+**Exercises**
+
+* 「サンプル効率が悪い」ことへの対処法
+  * [モデルベースとの併用: Dyna](https://github.com/icoxfog417/baby-steps-of-rl-ja/tree/master/MM)
+* 「再現性が低い」ことへの対処法
+  * [新しい学習方法: 進化戦略](https://github.com/icoxfog417/baby-steps-of-rl-ja/tree/master/EV)
+* 「局所最適な行動に陥る、過学習することが多い」ことへの対処法
+  * [模倣学習: DAgger](https://github.com/icoxfog417/baby-steps-of-rl-ja/tree/master/IM)
+  * [逆強化学習: MaxEntropy/Bayesian](https://github.com/icoxfog417/baby-steps-of-rl-ja/tree/master/IRL)
+
+
 ## Day7: 強化学習の活用領域
 
-Day7では強化学習を活用する方法を探ります。具体的には、強化学習を活用する観点を整理し、観点ごとの事例、開発を支援ツールなどをまとめています。
+**Day7's goals**
+
+* 強化学習を活用する2つのパターンを理解する
+* 強化学習を活用する2つのパターンにおける研究と事例を知る
+* 強化学習を活用する2つのパターンを実現するツール/サービスを知る
+
+**Summary**
+
+* 強化学習を活用する2つのパターン
+  * 強化学習の活用は、「行動の最適化」と「学習の最適化」に大別できる。
+  * 行動の最適化は、強化学習により獲得された行動をそのまま活用する。
+  * 学習の最適化は、強化学習の「報酬の最大化」という学習プロセスを活用する。
+  * この2つの分類に添い、研究/事例/ツール/サービスを紹介していく。
 
 <img src="./doc/rl_application.PNG" width=800 alt="rl_application.PNG"/>
-
 
 ## Support Content
 
 プログラミングが初めて、という方のために参考になるコンテンツを用意しています。最近はプログラムを学ぶ書籍などは充実しているため、もちろんそれらで補完して頂いて構いません。
 
-* Python
-  * [python_exercises](https://github.com/icoxfog417/python_exercises)
-* Git
-  * [使い始めるGit](https://qiita.com/icoxfog417/items/617094c6f9018149f41f)
+[python_exercises](https://github.com/icoxfog417/python_exercises)
 
 ## Notation
 
