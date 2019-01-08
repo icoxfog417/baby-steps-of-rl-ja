@@ -315,7 +315,10 @@ http://localhost:8888/
   * ただ、戦略の学習は価値評価の学習に比べ安定しない傾向がある。2018年時点では、Policy Gradientの学習が意図した通りに行われているのかについてもまだよくわかっていない。
   * 既存の手法は、以下のように分類を行うことができる。
 
-<img src="./doc/rl_ways.PNG" width=800 alt="rl_ways.PNG"/>
+<p align="center">
+  <img src="./doc/rl_ways.PNG" width=600 alt="rl_ways.PNG"/>
+  <p align="center">強化学習の手法の分類</p>
+</p>
 
 **Exercises**
 
@@ -350,7 +353,10 @@ http://localhost:8888/
   * また、可能な限りログを取ることも重要である。「あ〜あの値をとっておけばな〜」という事態も避ける必要がある。
   * そのため、Day4以降では以下のようにモジュール化を行なっている。これにより、個別のテストが行いやすくなっている。
 
-<img src="./doc/train_architecture.PNG" width=800 alt="train_architecture.PNG"/>
+<p align="center">
+  <img src="./doc/train_architecture.PNG" width=600 alt="train_architecture.PNG"/>
+  <p align="center">強化学習の実装フレームワーク</p>
+</p>
 
 ## Day6: 強化学習の弱点を克服するための手法
 
@@ -374,7 +380,10 @@ Day6では、Day5で紹介した弱点に対する根本的な対処方法(ア�
   * 前者は環境のシミュレーター=モデルを作成するモデルベースの手法との併用、後者は状態をよりわかりやすい表現にする「表現学習」となる。
   * 本書では、モデルベースの併用として **Dyna** 、表現学習として **World Models** の紹介を行う。
 
-<img src="./doc/sample_improve.PNG" width=600 alt="sample_improve.PNG"/>
+<p align="center">
+  <img src="./doc/sample_improve.PNG" width=600 alt="sample_improve.PNG"/>
+  <p align="center">サンプル効率を改善する手法の一覧</p>
+</p>
 
 * 「再現性が低い」ことへの対処法
   * 再現性の低さを招いている要因の一つとして、「学習が安定しない」という問題がある。
@@ -389,7 +398,10 @@ Day6では、Day5で紹介した弱点に対する根本的な対処方法(ア�
   * 逆強化学習は、基本的には 1.報酬関数を推定=> 2.報酬をもとに行動を最適化=> 3.お手本の行動とあっているか比較=> 4.報酬を更新=>1に戻る、という手順を取る(下図参照)。
   * 通常の強化学習では2のプロセスだけで済むが、逆強化学習はこれを繰り返すことになる。そのため推定には時間がかかる(ただ、これを軽減する手法はいくつか提案されている)。
 
-<img src="./doc/irl.png" width=800 alt="irl.png"/>
+<p align="center">
+  <img src="./doc/irl.png" width=600 alt="irl.png"/>
+  <p align="center">逆強化学習のプロセス</p>
+</p>
 
 **Exercises**
 
@@ -418,7 +430,10 @@ Day6では、Day5で紹介した弱点に対する根本的な対処方法(ア�
   * 学習の最適化は、強化学習の「報酬の最大化」という学習プロセスを活用する。
   * この2つの分類に添い、研究/事例/ツール/サービスを紹介していく。
 
-<img src="./doc/rl_application.PNG" width=800 alt="rl_application.PNG"/>
+<p align="center">
+  <img src="./doc/rl_application.PNG" width=600 alt="rl_application.PNG"/>
+  <p align="center">強化学習の活用パターン</p>
+</p>
 
 ## Support Content
 
