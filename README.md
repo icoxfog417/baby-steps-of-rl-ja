@@ -2,6 +2,10 @@
 
 [Pythonで学ぶ強化学習 -入門から実践まで-](https://www.amazon.co.jp/dp/4065142989/)の実装コードリポジトリです。
 
+誤記、またサンプルコードの実行エラーについてはIssueで管理しています。
+
+[一覧](https://github.com/icoxfog417/baby-steps-of-rl-ja/issues)
+
 ## Index
 
 * [Setup](https://github.com/icoxfog417/baby-steps-of-rl-ja#setup)
@@ -14,7 +18,6 @@
 * [Day7: 強化学習の活用領域](https://github.com/icoxfog417/baby-steps-of-rl-ja#day7-%E5%BC%B7%E5%8C%96%E5%AD%A6%E7%BF%92%E3%81%AE%E6%B4%BB%E7%94%A8%E9%A0%98%E5%9F%9F)
 
 [Support Content](https://github.com/icoxfog417/baby-steps-of-rl-ja#support-content)  
-[誤記、注釈](https://github.com/icoxfog417/baby-steps-of-rl-ja#notation)
 
 ## Setup
 
@@ -440,14 +443,3 @@ Day6では、Day5で紹介した弱点に対する根本的な対処方法(ア�
 プログラミングが初めて、という方のために参考になるコンテンツを用意しています。最近はプログラムを学ぶ書籍などは充実しているため、もちろんそれらで補完して頂いて構いません。
 
 [python_exercises](https://github.com/icoxfog417/python_exercises)
-
-## Notation
-
-注記や誤記について。
-
-* 本書ではValue approximation=状態評価としていますが、これは「価値評価」とするのが適切です。
-  * 「Value」は状態価値(V)もあれば、行動価値(Q)もあるためです。Day2までは状態評価ですが、Day3以降は行動価値(Q)の推定であるため推定している内容(行動価値)と言葉(状態評価)が合わなくなっています。
-  * 「状態評価」の表記のゆえんは、価値の定義となるBellman Equationの出自が「状態評価」である点です。この表記のまま用語を統一してしまった形になります。この点は、再版の際に修正します。
-* Day3で「経験を状態評価、戦略どちらの更新に利用するか: Off policy vs On policy」とありますが、「経験を状態評価、戦略のどちらの更新に使用するか」という点と、「Off policyとOn policy」という観点は別の話になります。
-  * 状態評価(前述の通り、これは「価値評価」が適切です)を更新するか、戦略を更新するかというのは「更新対象」の話であり、「On-policyかOff-policyか」というのは価値の見積もりに際しての前提のことです(最良行動前提か、戦略前提か)。
-  * そのため、図3-1は「Off-policy/On-policy」ではなく「Valueベース/Policyベース」の方が適切です。
