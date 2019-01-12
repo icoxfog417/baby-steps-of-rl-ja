@@ -2,9 +2,11 @@
 
 [Pythonで学ぶ強化学習 -入門から実践まで-](https://www.amazon.co.jp/dp/4065142989/)の実装コードリポジトリです。
 
-**[誤記、またサンプルコードの実行エラーについてはIssueで管理しています。](https://github.com/icoxfog417/baby-steps-of-rl-ja/issues)**
+誤記、またサンプルコードの実行エラーについてはIssueで管理しています。
 
-誤記/表記についての指摘、またサンプルコードの実行エラーについては[こちら](https://github.com/icoxfog417/baby-steps-of-rl-ja/issues/new)からご連絡をお願いします。
+**[Issue List](https://github.com/icoxfog417/baby-steps-of-rl-ja/issues)**
+
+誤記/表記についての指摘、またサンプルコードの実行エラーについては[Issueにて](https://github.com/icoxfog417/baby-steps-of-rl-ja/issues/new)ご連絡をお願いします。
 
 * 既に同じIssueが上がっていないか、事前に確認をお願いします。
 * 実行エラーについては、テンプレートに沿い実行環境、発生エラーについて記載をお願いします。
