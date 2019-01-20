@@ -100,9 +100,9 @@ class PolicyIterationPlanner(Planner):
                         r += action_prob * prob * \
                              (reward + gamma * V[next_state])
                     expected_rewards.append(r)
-                max_reward = max(expected_rewards)
-                delta = max(delta, abs(max_reward - V[s]))
-                V[s] = max_reward
+                value = sum(expected_rewards)
+                delta = max(delta, abs(value - V[s]))
+                V[s] = value
             if delta < threshold:
                 break
 
