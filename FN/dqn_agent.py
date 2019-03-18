@@ -105,7 +105,7 @@ class CatcherObserver(Observer):
         else:
             self._frames.append(normalized)
         feature = np.array(self._frames)
-        # Convert the feature shape (f, w, h) => (w, h, f).
+        # Convert the feature shape (f, w, h) => (h, w, f).
         feature = np.transpose(feature, (1, 2, 0))
 
         return feature
