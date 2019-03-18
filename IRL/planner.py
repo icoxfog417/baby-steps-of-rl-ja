@@ -74,7 +74,7 @@ class PolicyIterationPlanner(Planner):
         self.policy = np.ones((self.env.observation_space.n,
                                self.env.action_space.n))
         # First, take each action uniformly.
-        self.polidy = self.policy / self.env.action_space.n
+        self.policy = self.policy / self.env.action_space.n
 
     def policy_to_q(self, V, gamma):
         Q = np.zeros((self.env.observation_space.n,
@@ -108,9 +108,9 @@ class PolicyIterationPlanner(Planner):
                         reward += action_prob * p * \
                                   (r + gamma * V[n_s] * (not done))
                     expected_rewards.append(reward)
-                max_reward = max(expected_rewards)
-                delta = max(delta, abs(max_reward - V[s]))
-                V[s] = max_reward
+                value = sum(expected_rewards)
+                delta = max(delta, abs(value - V[s]))
+                V[s] = value
 
             if delta < threshold or count > self._limit_count:
                 break
