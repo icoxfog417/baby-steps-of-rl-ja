@@ -35,13 +35,13 @@ class FNAgent():
         return agent
 
     def initialize(self, experiences):
-        raise Exception("You have to implements estimate method.")
+        raise NotImplementedError("You have to implement initialize method.")
 
     def estimate(self, s):
-        raise Exception("You have to implements estimate method.")
+        raise NotImplementedError("You have to implement estimate method.")
 
     def update(self, experiences, gamma):
-        raise Exception("You have to implements update method.")
+        raise NotImplementedError("You have to implement update method.")
 
     def policy(self, s):
         if np.random.random() < self.epsilon or not self.initialized:
@@ -186,7 +186,7 @@ class Observer():
         return self.transform(n_state), reward, done, info
 
     def transform(self, state):
-        raise Exception("You have to implements transform method.")
+        raise NotImplementedError("You have to implement transform method.")
 
 
 class Logger():
