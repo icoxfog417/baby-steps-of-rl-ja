@@ -12,7 +12,7 @@ from fn_framework import FNAgent, Trainer, Observer, Experience
 class PolicyGradientAgent(FNAgent):
 
     def __init__(self, actions):
-        # PolicyGradientAgent depends on self policy (doesn't use epsilon).
+        # PolicyGradientAgent uses self policy (doesn't use epsilon).
         super().__init__(epsilon=0.0, actions=actions)
         self.estimate_probs = True
         self.scaler = StandardScaler()
@@ -88,9 +88,8 @@ class CartPoleObserver(Observer):
 
 class PolicyGradientTrainer(Trainer):
 
-    def __init__(self, buffer_size=256, gamma=0.9,
+    def __init__(self, buffer_size=256, batch_size=32, gamma=0.9,
                  report_interval=10, log_dir=""):
-        batch_size = 0  # Use all experiences as batch.
         super().__init__(buffer_size, batch_size, gamma,
                          report_interval, log_dir)
 
@@ -105,7 +104,8 @@ class PolicyGradientTrainer(Trainer):
             self.experiences = []
 
     def make_batch(self, policy_experiences):
-        batch = policy_experiences
+        length = min(self.batch_size, len(policy_experiences))
+        batch = policy_experiences[:length]
         states = np.vstack([e.s for e in batch])
         actions = [e.a for e in batch]
         rewards = [e.r for e in batch]
