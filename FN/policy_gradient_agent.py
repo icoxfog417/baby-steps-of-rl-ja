@@ -1,7 +1,5 @@
 import os
 import argparse
-import random
-from collections import deque
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.externals import joblib
@@ -13,10 +11,11 @@ from fn_framework import FNAgent, Trainer, Observer, Experience
 
 class PolicyGradientAgent(FNAgent):
 
-    def __init__(self, epsilon, actions):
-        super().__init__(epsilon, actions)
+    def __init__(self, actions):
+        # PolicyGradientAgent uses self policy (doesn't use epsilon).
+        super().__init__(epsilon=0.0, actions=actions)
         self.estimate_probs = True
-        self.scaler = None
+        self.scaler = StandardScaler()
         self._updater = None
 
     def save(self, model_path):
@@ -24,8 +23,11 @@ class PolicyGradientAgent(FNAgent):
         joblib.dump(self.scaler, self.scaler_path(model_path))
 
     @classmethod
-    def load(cls, env, model_path, epsilon=0.0001):
-        agent = super().load(env, model_path, epsilon)
+    def load(cls, env, model_path):
+        actions = list(range(env.action_space.n))
+        agent = cls(actions)
+        agent.model = K.models.load_model(model_path)
+        agent.initialized = True
         agent.scaler = joblib.load(agent.scaler_path(model_path))
         return agent
 
@@ -35,10 +37,7 @@ class PolicyGradientAgent(FNAgent):
         return fname
 
     def initialize(self, experiences, optimizer):
-        self.scaler = StandardScaler()
         states = np.vstack([e.s for e in experiences])
-        self.scaler.fit(states)
-
         feature_size = states.shape[1]
         self.model = K.models.Sequential([
             K.layers.Dense(10, activation="relu", input_shape=(feature_size,)),
@@ -46,6 +45,7 @@ class PolicyGradientAgent(FNAgent):
             K.layers.Dense(len(self.actions), activation="softmax")
         ])
         self.set_updater(optimizer)
+        self.scaler.fit(states)
         self.initialized = True
         print("Done initialization. From now, begin training!")
 
@@ -88,64 +88,52 @@ class CartPoleObserver(Observer):
 
 class PolicyGradientTrainer(Trainer):
 
-    def __init__(self, buffer_size=1024, batch_size=32,
-                 gamma=0.9, report_interval=10, log_dir=""):
+    def __init__(self, buffer_size=256, batch_size=32, gamma=0.9,
+                 report_interval=10, log_dir=""):
         super().__init__(buffer_size, batch_size, gamma,
                          report_interval, log_dir)
-        self._reward_scaler = None
-        self.d_experiences = deque(maxlen=buffer_size)
 
-    def train(self, env, episode_count=220, epsilon=0.1, initial_count=-1,
-              render=False):
+    def train(self, env, episode_count=220, initial_count=-1, render=False):
         actions = list(range(env.action_space.n))
-        agent = PolicyGradientAgent(epsilon, actions)
-
+        agent = PolicyGradientAgent(actions)
         self.train_loop(env, agent, episode_count, initial_count, render)
         return agent
 
     def episode_begin(self, episode, agent):
-        self.experiences = []
-
-    def step(self, episode, step_count, agent, experience):
         if agent.initialized:
-            agent.update(*self.make_batch())
+            self.experiences = []
 
-    def make_batch(self):
-        batch = random.sample(self.d_experiences, self.batch_size)
+    def make_batch(self, policy_experiences):
+        length = min(self.batch_size, len(policy_experiences))
+        batch = policy_experiences[:length]
         states = np.vstack([e.s for e in batch])
         actions = [e.a for e in batch]
         rewards = [e.r for e in batch]
+        scaler = StandardScaler()
         rewards = np.array(rewards).reshape((-1, 1))
-        rewards = self._reward_scaler.transform(rewards).flatten()
+        rewards = scaler.fit_transform(rewards).flatten()
         return states, actions, rewards
 
-    def begin_train(self, episode, agent):
-        optimizer = K.optimizers.Adam(clipnorm=1.0)
-        agent.initialize(self.d_experiences, optimizer)
-        self._reward_scaler = StandardScaler(with_mean=False)
-        rewards = np.array([[e.r] for e in self.d_experiences])
-        self._reward_scaler.fit(rewards)
-
     def episode_end(self, episode, step_count, agent):
-        rewards = [e.r for e in self.experiences]
+        rewards = [e.r for e in self.get_recent(step_count)]
         self.reward_log.append(sum(rewards))
 
-        discounteds = []
-        for t, r in enumerate(rewards):
-            d_r = [_r * (self.gamma ** i) for i, _r in
-                   enumerate(rewards[t:])]
-            d_r = sum(d_r)
-            discounteds.append(d_r)
+        if not agent.initialized:
+            if len(self.experiences) == self.buffer_size:
+                optimizer = K.optimizers.Adam(lr=0.01)
+                agent.initialize(self.experiences, optimizer)
+                self.training = True
+        else:
+            policy_experiences = []
+            for t, e in enumerate(self.experiences):
+                s, a, r, n_s, d = e
+                d_r = [_r * (self.gamma ** i) for i, _r in
+                       enumerate(rewards[t:])]
+                d_r = sum(d_r)
+                d_e = Experience(s, a, d_r, n_s, d)
+                policy_experiences.append(d_e)
 
-        for i, e in enumerate(self.experiences):
-            s, a, r, n_s, d = e
-            d_r = discounteds[i]
-            d_e = Experience(s, a, d_r, n_s, d)
-            self.d_experiences.append(d_e)
-
-        if not self.training and len(self.d_experiences) == self.buffer_size:
-            self.begin_train(i, agent)
-            self.training = True
+            agent.update(*self.make_batch(policy_experiences))
 
         if self.is_event(episode, self.report_interval):
             recent_rewards = self.reward_log[-self.report_interval:]
@@ -161,7 +149,7 @@ def main(play):
         agent = PolicyGradientAgent.load(env, path)
         agent.play(env)
     else:
-        trained = trainer.train(env, episode_count=250)
+        trained = trainer.train(env)
         trainer.logger.plot("Rewards", trainer.reward_log,
                             trainer.report_interval)
         trained.save(path)
