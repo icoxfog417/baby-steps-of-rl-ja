@@ -7,7 +7,8 @@
 **[Issue List](https://github.com/icoxfog417/baby-steps-of-rl-ja/issues)**
 
 * [3版(2/4発行)での修正点](https://github.com/icoxfog417/baby-steps-of-rl-ja/milestone/1?closed=1)
-
+* [次版での修正予定点](https://github.com/icoxfog417/baby-steps-of-rl-ja/milestone/2)
+  * [ソースコードの修正点](https://github.com/icoxfog417/baby-steps-of-rl-ja/compare/master...develop)
 
 誤記/表記についての指摘、またサンプルコードの実行エラーについては[Issueにて](https://github.com/icoxfog417/baby-steps-of-rl-ja/issues/new)ご連絡をお願いします。
 
