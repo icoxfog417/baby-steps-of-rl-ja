@@ -1,4 +1,5 @@
 import os
+import random
 import argparse
 import numpy as np
 from sklearn.preprocessing import StandardScaler
@@ -105,7 +106,7 @@ class PolicyGradientTrainer(Trainer):
 
     def make_batch(self, policy_experiences):
         length = min(self.batch_size, len(policy_experiences))
-        batch = policy_experiences[:length]
+        batch = random.sample(policy_experiences, length)
         states = np.vstack([e.s for e in batch])
         actions = [e.a for e in batch]
         rewards = [e.r for e in batch]
