@@ -29,7 +29,7 @@ class Planner():
         return grid
 
 
-class ValuteIterationPlanner(Planner):
+class ValueIterationPlanner(Planner):
 
     def __init__(self, env):
         super().__init__(env)

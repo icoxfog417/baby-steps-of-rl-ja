@@ -2,7 +2,7 @@ import os
 import tornado.web
 import tornado.escape
 from DP.environment import Environment
-from DP.planner import ValuteIterationPlanner, PolicyIterationPlanner
+from DP.planner import ValueIterationPlanner, PolicyIterationPlanner
 
 
 class IndexHandler(tornado.web.RequestHandler):
@@ -26,7 +26,7 @@ class PlanningHandler(tornado.web.RequestHandler):
 
         env = Environment(grid, move_prob=move_prob)
         if plan_type == "value":
-            planner = ValuteIterationPlanner(env)
+            planner = ValueIterationPlanner(env)
         elif plan_type == "policy":
             planner = PolicyIterationPlanner(env)
 
