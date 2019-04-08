@@ -1,7 +1,7 @@
 import random
 import unittest
 from DP.environment import Environment
-from DP.planner import ValuteIterationPlanner, PolicyIterationPlanner
+from DP.planner import ValueIterationPlanner, PolicyIterationPlanner
 
 
 class TestPlanner(unittest.TestCase):
@@ -9,7 +9,7 @@ class TestPlanner(unittest.TestCase):
     def test_value_iteration(self):
         grid = self.get_sample_grid()
         env = Environment(grid)
-        planner = ValuteIterationPlanner(env)
+        planner = ValueIterationPlanner(env)
         result = planner.plan()
         print("Value Iteration")
         for r in result:

@@ -32,7 +32,7 @@ class Planner():
         raise Exception("Planner have to implements plan method.")
 
 
-class ValuteIterationPlanner(Planner):
+class ValueIterationPlanner(Planner):
 
     def __init__(self, env):
         super().__init__(env)
@@ -171,7 +171,7 @@ if __name__ == "__main__":
             [0, 0, 0, 0],
         ])
         print("Value Iteration.")
-        vp = ValuteIterationPlanner(env)
+        vp = ValueIterationPlanner(env)
         v = vp.plan()
         print(v.reshape(env.shape))
 
