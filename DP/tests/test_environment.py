@@ -14,7 +14,7 @@ class TestEnvironment(unittest.TestCase):
             self.assertEqual(state.column, 0)
             goal = False
             for t in range(10):
-                action = random.choice(env.action_space)
+                action = random.choice(env.actions)
                 state, reward, done = env.step(action)
                 self.assertTrue(0 <= state.row < len(env.grid))
                 self.assertTrue(0 <= state.column < len(env.grid[0]))
