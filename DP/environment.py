@@ -72,7 +72,8 @@ class Environment():
                 if self.grid[row][column] != 9:
                     states.append(State(row, column))
         return states
-
+    
+    # transitで使われる関数。「移動するgrid：遷移確率」の辞書を返す。
     def transit_func(self, state, action):
         transition_probs = {}
         if not self.can_action_at(state):
@@ -96,6 +97,7 @@ class Environment():
 
         return transition_probs
 
+    # transit_funcで使われる。
     def can_action_at(self, state):
         if self.grid[state.row][state.column] == 0:
             return True
@@ -126,7 +128,7 @@ class Environment():
 
         # Check whether the agent bumped a block cell.
         if self.grid[next_state.row][next_state.column] == 9:
-            next_state = state
+            next_state = state # 9のgirdには移動できない（nexr_stateになれない。）
 
         return next_state
 
@@ -147,11 +149,13 @@ class Environment():
 
         return reward, done
 
+    
     def reset(self):
         # Locate the agent at lower left corner.
         self.agent_state = State(self.row_length - 1, 0)
         return self.agent_state
 
+    # main関数で使う。
     def step(self, action):
         next_state, reward, done = self.transit(self.agent_state, action)
         if next_state is not None:
@@ -159,6 +163,7 @@ class Environment():
 
         return next_state, reward, done
 
+    # step関数で使われる。
     def transit(self, state, action):
         transition_probs = self.transit_func(state, action)
         if len(transition_probs) == 0:
@@ -166,10 +171,10 @@ class Environment():
 
         next_states = []
         probs = []
-        for s in transition_probs:
+        for s in transition_probs:# 辞書を2つのリストに分解する。np.random.choiceを使うため。
             next_states.append(s)
             probs.append(transition_probs[s])
 
-        next_state = np.random.choice(next_states, p=probs)
-        reward, done = self.reward_func(next_state)
+        next_state = np.random.choice(next_states, p=probs)#そのリストの中でどの方向に移動するか、遷移確率に乗っ取って移動。
+        reward, done = self.reward_func(next_state)#移動後得られる報酬とdoneを返す。
         return next_state, reward, done

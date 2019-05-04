@@ -8,7 +8,7 @@ class Agent():
         self.actions = env.actions
 
     def policy(self, state):
-        return random.choice(self.actions)
+        return random.choice(self.actions)# randomに選んだ方向を返す。
 
 
 def main():
@@ -28,9 +28,12 @@ def main():
         total_reward = 0
         done = False
 
+        # ここが本ではfor文に入ってないように見えて混乱した。
+        # doneがTrueになるのは、rewardを得た場合。詳細はreward_funcの中。
+        # つまりrewardを得るために、永遠に動き続ける。
         while not done:
-            action = agent.policy(state)
-            next_state, reward, done = env.step(action)
+            action = agent.policy(state)# randomな方向を得る
+            next_state, reward, done = env.step(action)#移動する。
             total_reward += reward
             state = next_state
 
