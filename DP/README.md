@@ -3,7 +3,7 @@
 There are 3 programs are available.
 
 * To understand MDP: `environment.py`
-  * `python run_random_agent.py`
+  * `python environment_demo.py`
 * To understand Bellman Equation: `bellman_equation.py`
   * `python bellman_equation.py`
 * To understand Dynamic Programming: `planner.py`
