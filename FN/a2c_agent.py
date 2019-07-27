@@ -63,8 +63,8 @@ class ActorCriticAgent(FNAgent):
 
     def set_updater(self, optimizer,
                     value_loss_weight=1.0, entropy_weight=0.1):
-        actions = tf.placeholder(shape=(None), dtype="int32")
-        values = tf.placeholder(shape=(None), dtype="float32")
+        actions = tf.compat.v1.placeholder(shape=(None), dtype="int32")
+        values = tf.compat.v1.placeholder(shape=(None), dtype="float32")
 
         _, action_evals, estimateds = self.model.output
 
@@ -103,7 +103,7 @@ class ActorCriticAgent(FNAgent):
         ea0 = tf.exp(a0)
         z0 = tf.reduce_sum(ea0, axis=-1, keepdims=True)
         p0 = ea0 / z0
-        return tf.reduce_sum(p0 * (tf.log(z0) - a0), axis=-1)
+        return tf.reduce_sum(p0 * (tf.math.log(z0) - a0), axis=-1)
 
     def policy(self, s):
         if not self.initialized:
@@ -131,7 +131,7 @@ class SampleLayer(K.layers.Layer):
 
     def call(self, x):
         noise = tf.random_uniform(tf.shape(x))
-        return tf.argmax(x - tf.log(-tf.log(noise)), axis=1)
+        return tf.argmax(x - tf.math.log(-tf.math.log(noise)), axis=1)
 
     def compute_output_shape(self, input_shape):
         return (input_shape[0], self.output_dim)

@@ -8,7 +8,7 @@ a = tf.Variable(np.random.rand(4, 2))
 b = tf.Variable(np.random.rand(4, 1))
 
 # Input(x) (row=2 x col=1).
-x = tf.placeholder(tf.float64, shape=(2, 1))
+x = tf.compat.v1.placeholder(tf.float64, shape=(2, 1))
 
 # Output(y) (row=4 x col=1).
 y = tf.matmul(a, x) + b

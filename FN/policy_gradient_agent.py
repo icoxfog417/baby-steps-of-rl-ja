@@ -51,14 +51,14 @@ class PolicyGradientAgent(FNAgent):
         print("Done initialization. From now, begin training!")
 
     def set_updater(self, optimizer):
-        actions = tf.placeholder(shape=(None), dtype="int32")
-        rewards = tf.placeholder(shape=(None), dtype="float32")
+        actions = tf.compat.v1.placeholder(shape=(None), dtype="int32")
+        rewards = tf.compat.v1.placeholder(shape=(None), dtype="float32")
         one_hot_actions = tf.one_hot(actions, len(self.actions), axis=1)
         action_probs = self.model.output
         selected_action_probs = tf.reduce_sum(one_hot_actions * action_probs,
                                               axis=1)
         clipped = tf.clip_by_value(selected_action_probs, 1e-10, 1.0)
-        loss = - tf.log(clipped) * rewards
+        loss = - tf.math.log(clipped) * rewards
         loss = tf.reduce_mean(loss)
 
         updates = optimizer.get_updates(loss=loss,

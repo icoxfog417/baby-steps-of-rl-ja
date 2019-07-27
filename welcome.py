@@ -26,7 +26,7 @@ def welcome():
         s = env.reset()
         done = False
         while not done:
-            env.render()
+            env.render(mode="human")
             a = policy(s)
             n_state, reward, done, info = env.step(a)
             s = n_state

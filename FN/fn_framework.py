@@ -179,7 +179,7 @@ class Observer():
         return self.transform(self._env.reset())
 
     def render(self):
-        self._env.render()
+        self._env.render(mode="human")
 
     def step(self, action):
         n_state, reward, done, info = self._env.step(action)
@@ -203,7 +203,8 @@ class Logger():
             if not os.path.exists(self.log_dir):
                 os.mkdir(self.log_dir)
 
-        self._callback = K.callbacks.TensorBoard(self.log_dir)
+        self._callback = tf.compat.v1.keras.callbacks.TensorBoard(
+                            self.log_dir)
 
     @property
     def writer(self):
@@ -245,7 +246,7 @@ class Logger():
         plt.show()
 
     def write(self, index, name, value):
-        summary = tf.Summary()
+        summary = tf.compat.v1.Summary()
         summary_value = summary.value.add()
         summary_value.tag = name
         summary_value.simple_value = value
@@ -273,12 +274,12 @@ class Logger():
             image.save(output, format="PNG")
             image_string = output.getvalue()
             output.close()
-            image = tf.Summary.Image(
+            image = tf.compat.v1.Summary.Image(
                         height=height, width=width, colorspace=channel,
                         encoded_image_string=image_string)
-            value = tf.Summary.Value(tag=tag, image=image)
+            value = tf.compat.v1.Summary.Value(tag=tag, image=image)
             values.append(value)
 
-        summary = tf.Summary(value=values)
+        summary = tf.compat.v1.Summary(value=values)
         self.writer.add_summary(summary, index)
         self.writer.flush()

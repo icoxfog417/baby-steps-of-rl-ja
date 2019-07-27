@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.stats
-from scipy.misc import logsumexp
+from scipy.special import logsumexp
 from planner import PolicyIterationPlanner
 from tqdm import tqdm
 
