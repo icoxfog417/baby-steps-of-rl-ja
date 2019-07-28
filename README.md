@@ -18,6 +18,7 @@
 ## Index
 
 * [Setup](https://github.com/icoxfog417/baby-steps-of-rl-ja#setup)
+  * [Setup with GPU](https://github.com/icoxfog417/baby-steps-of-rl-ja#setup-with-gpu)
 * [Day1: 強化学習の位置づけを知る](https://github.com/icoxfog417/baby-steps-of-rl-ja#day1-%E5%BC%B7%E5%8C%96%E5%AD%A6%E7%BF%92%E3%81%AE%E4%BD%8D%E7%BD%AE%E3%81%A5%E3%81%91%E3%82%92%E7%9F%A5%E3%82%8B)
 * [Day2: 強化学習の解法(1): 環境から計画を立てる](https://github.com/icoxfog417/baby-steps-of-rl-ja#day2-%E5%BC%B7%E5%8C%96%E5%AD%A6%E7%BF%92%E3%81%AE%E8%A7%A3%E6%B3%951-%E7%92%B0%E5%A2%83%E3%81%8B%E3%82%89%E8%A8%88%E7%94%BB%E3%82%92%E7%AB%8B%E3%81%A6%E3%82%8B)
 * [Day3: 強化学習の解法(2): 経験から計画を立てる](https://github.com/icoxfog417/baby-steps-of-rl-ja#day3-%E5%BC%B7%E5%8C%96%E5%AD%A6%E7%BF%92%E3%81%AE%E8%A7%A3%E6%B3%952-%E7%B5%8C%E9%A8%93%E3%81%8B%E3%82%89%E8%A8%88%E7%94%BB%E3%82%92%E7%AB%8B%E3%81%A6%E3%82%8B)
@@ -70,6 +71,46 @@ pip install -r requirements.txt
 ```
 python welcome.py
 ```
+
+## Setup with GPU
+
+Day4で深層学習を利用した強化学習を実装していますが(DQN/A2C)、この学習にはGPUが不可欠です。GPUがない場合、学習に数日はかかります。
+
+GPUを利用した学習には、当然GPUが必要です(より具体的には、NVIDIAのGPUです)。GPUを調達する方法は、以下2つです。
+
+1. GPUを搭載したマシンを用意する
+2. クラウド上でGPUを利用する
+  * クラウドプラットフォームのGPUインスタンスを利用する
+  * Google ColaboratoryでGPUを利用する
+
+### Local GPU Machine Setup
+
+GPUを搭載したマシンを用意する場合は、以下3つのステップでセットアップを行います。
+
+1. NVIDIA Driverのダウンロードとインストール
+  * [NVIDIAドライバダウンロード](https://www.nvidia.co.jp/Download/index.aspx?lang=jp)
+  * 基本的には、自動でダウンロードすべきドライバを選んでくれます。選んでくれない場合、手動で選択してダウンロードします。
+2. CUDA Toolkitのインストール
+  * [CUDA Toolkit Archive](https://developer.nvidia.com/cuda-toolkit-archive)から、使用するTensorFlowが対応しているバージョンをダウンロードしインストールします([TensorFlow 1.13以上はCUDA 10です](https://www.tensorflow.org/install/gpu))。
+3. cuDNNのインストール
+  * [cuDNN](https://developer.nvidia.com/cudnn)をダウンロードし、Toolkitのフォルダに展開します。なお、cuDNNのダウンロードにはユーザー登録が必要です。
+
+`import tensorflow as tf`を実行し何もエラーがでなければセットアップは完了です。
+
+```
+> python
+>>>  import tensorflow as tf
+```
+
+### Cloud GPU Machine Setup
+
+AWSやAzure、GCPではGPUインスタンスを提供しています。それらを使用すれば、GPU搭載マシンを用意する必要はありません。ただ、当然お金がかかるのでハードルがちょっと高いのも事実です。そこで、ちょっとだけGPUを使用した計算ができるGoogle Colaboratoryを紹介します。
+
+* [Day4: 価値評価に深層学習を適用する: Deep Q-Network](https://colab.research.google.com/drive/1QZs38jqCaSIpoKmoIl8XxVJUwdG78Hb8)
+* [Day4: 戦略に深層学習を適用する: Advantage Actor Critic(A2C)](https://colab.research.google.com/drive/1IzXGuNj4ZbsuWC7ei98ZzKrVk7mPS1t-)
+
+Google Colaboratoryは、オンライン上でJupyter Notebookが使えるサービスです。GPUを使った計算も行うことができます(ただ、実行時間が限られています)。長期の実行は行えませんが、可能な範囲で学習してモデルをダウンロードするには十分使えます。
+
 
 ## Day1: 強化学習の位置づけを知る
 
