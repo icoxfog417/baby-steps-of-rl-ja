@@ -80,20 +80,20 @@ GPUを利用した学習には、当然GPUが必要です(より具体的には�
 
 1. GPUを搭載したマシンを用意する
 2. クラウド上でGPUを利用する
-  * クラウドプラットフォームのGPUインスタンスを利用する
-  * Google ColaboratoryでGPUを利用する
+    * クラウドプラットフォームのGPUインスタンスを利用する
+    * Google ColaboratoryでGPUを利用する
 
 ### Local GPU Machine Setup
 
 GPUを搭載したマシンを用意する場合は、以下3つのステップでセットアップを行います。
 
 1. NVIDIA Driverのダウンロードとインストール
-  * [NVIDIAドライバダウンロード](https://www.nvidia.co.jp/Download/index.aspx?lang=jp)
-  * 基本的には、自動でダウンロードすべきドライバを選んでくれます。選んでくれない場合、手動で選択してダウンロードします。
+    * [NVIDIAドライバダウンロード](https://www.nvidia.co.jp/Download/index.aspx?lang=jp)
+    * 基本的には、自動でダウンロードすべきドライバを選んでくれます。選んでくれない場合、手動で選択してダウンロードします。
 2. CUDA Toolkitのインストール
-  * [CUDA Toolkit Archive](https://developer.nvidia.com/cuda-toolkit-archive)から、使用するTensorFlowが対応しているバージョンをダウンロードしインストールします([TensorFlow 1.13以上はCUDA 10です](https://www.tensorflow.org/install/gpu))。
+    * [CUDA Toolkit Archive](https://developer.nvidia.com/cuda-toolkit-archive)から、使用するTensorFlowが対応しているバージョンをダウンロードしインストールします([TensorFlow 1.13以上はCUDA 10です](https://www.tensorflow.org/install/gpu))。
 3. cuDNNのインストール
-  * [cuDNN](https://developer.nvidia.com/cudnn)をダウンロードし、Toolkitのフォルダに展開します。なお、cuDNNのダウンロードにはユーザー登録が必要です。
+    * [cuDNN](https://developer.nvidia.com/cudnn)をダウンロードし、Toolkitのフォルダに展開します。なお、cuDNNのダウンロードにはユーザー登録が必要です。
 
 `import tensorflow as tf`を実行し何もエラーがでなければセットアップは完了です。
 
