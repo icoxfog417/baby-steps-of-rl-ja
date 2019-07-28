@@ -74,7 +74,7 @@ class ActorCriticAgent(FNAgent):
         advantages = values - tf.stop_gradient(estimateds)
 
         policy_loss = tf.reduce_mean(neg_logs * advantages)
-        value_loss = tf.losses.mean_squared_error(values, estimateds)
+        value_loss = tf.keras.losses.MeanSquaredError()(values, estimateds)
         action_entropy = tf.reduce_mean(self.categorical_entropy(action_evals))
 
         loss = policy_loss + value_loss_weight * value_loss
@@ -130,7 +130,7 @@ class SampleLayer(K.layers.Layer):
         super(SampleLayer, self).build(input_shape)
 
     def call(self, x):
-        noise = tf.random_uniform(tf.shape(x))
+        noise = tf.random.uniform(tf.shape(x))
         return tf.argmax(x - tf.math.log(-tf.math.log(noise)), axis=1)
 
     def compute_output_shape(self, input_shape):
