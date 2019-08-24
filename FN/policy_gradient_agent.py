@@ -8,6 +8,7 @@ import tensorflow as tf
 from tensorflow.python import keras as K
 import gym
 from fn_framework import FNAgent, Trainer, Observer, Experience
+tf.compat.v1.disable_eager_execution()
 
 
 class PolicyGradientAgent(FNAgent):
