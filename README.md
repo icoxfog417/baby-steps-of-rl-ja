@@ -197,7 +197,7 @@ Google Colaboratoryは、オンライン上でJupyter Notebookが使えるサー
 * [価値反復法(Value Iteration)、戦略反復法(Policy Iteration)の実装](https://github.com/icoxfog417/baby-steps-of-rl-ja/blob/master/DP/planner.py)
 
 Value Iteration/Policy Iterationについて実行結果を試せるシミュレーターを用意しています。  
-以下のスクリプトを実行し、立ち上がったサーバーにアクセスしてみてください。
+以下のスクリプトを実行し、立ち上がったサーバーにアクセスしてみてください([こちらから試せます](https://baby-step-of-rl-ja-dp.herokuapp.com/))。
 
 ```
 python DP/run_server.py
