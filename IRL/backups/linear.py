@@ -15,13 +15,15 @@ class LinerIRL():
 
     def initialize(self, num_states, num_actions, optimizer, C=1.0, r_max=2):
         # Variables
-        best_trans_probs = tf.placeholder(tf.float32,
+        best_trans_probs = tf.compat.v1.placeholder(
+                                          tf.float32,
                                           shape=(num_states, num_states))
-        other_trans_probss = tf.placeholder(tf.float32,
+        other_trans_probss = tf.compat.v1.placeholder(
+                                            tf.float32,
                                             shape=(num_states,
                                                    num_actions - 1,
                                                    num_states))
-        gamma = tf.placeholder(tf.float32, shape=())
+        gamma = tf.compat.v1.placeholder(tf.float32, shape=())
         rewards = tf.Variable(tf.random_normal([num_states], mean=r_max/2),
                               name="rewards")
 

@@ -5,7 +5,6 @@ from sklearn.externals.joblib import Parallel, delayed
 from PIL import Image
 import matplotlib.pyplot as plt
 import gym
-import gym_ple
 
 # Disable TensorFlow GPU for parallel execution
 if os.name == "nt":
@@ -71,6 +70,7 @@ class EvolutionalAgent():
 class CatcherObserver():
 
     def __init__(self, width, height, frame_count):
+        import gym_ple
         self._env = gym.make("Catcher-v0")
         self.width = width
         self.height = height
@@ -87,7 +87,7 @@ class CatcherObserver():
         return self.transform(self._env.reset())
 
     def render(self):
-        self._env.render()
+        self._env.render(mode="human")
 
     def step(self, action):
         n_state, reward, done, info = self._env.step(action)

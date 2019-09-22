@@ -73,8 +73,8 @@ class PolicyGradientContinuousAgent(FNAgent):
         print("Done initialize. From now, begin training!")
 
     def set_updater(self, optimizer):
-        actions = tf.placeholder(shape=(None), dtype="float32")
-        td_error = tf.placeholder(shape=(None), dtype="float32")
+        actions = tf.compat.v1.placeholder(shape=(None), dtype="float32")
+        td_error = tf.compat.v1.placeholder(shape=(None), dtype="float32")
 
         # Actor loss
         mu = self.dist_model.output
@@ -82,7 +82,7 @@ class PolicyGradientContinuousAgent(FNAgent):
                                               scale=0.1)
         action_probs = action_dist.prob(tf.squeeze(actions))
         clipped = tf.clip_by_value(action_probs, 1e-10, 1.0)
-        loss = - tf.log(clipped) * td_error
+        loss = - tf.math.log(clipped) * td_error
         loss = tf.reduce_mean(loss)
 
         updates = optimizer.get_updates(loss=loss,
