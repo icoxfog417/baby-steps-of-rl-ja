@@ -12,8 +12,9 @@ define("port", default=8888, help="run on the given port", type=int)
 def main():
     parse_command_line()
     app = Application()
-    app.listen(options.port)
-    print("Run server on port: {}".format(options.port))
+    port = int(os.environ.get("PORT", 8888))
+    app.listen(port)
+    print("Run server on port: {}".format(port))
     tornado.ioloop.IOLoop.current().start()
 
 

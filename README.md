@@ -7,8 +7,9 @@
 **[Issue List](https://github.com/icoxfog417/baby-steps-of-rl-ja/issues)**
 
 * [3版(2/4発行)での修正点](https://github.com/icoxfog417/baby-steps-of-rl-ja/milestone/1?closed=1)
-* [次版での修正予定点](https://github.com/icoxfog417/baby-steps-of-rl-ja/milestone/2)
-  * [ソースコードの修正点](https://github.com/icoxfog417/baby-steps-of-rl-ja/compare/master...develop)
+  * [ソースコードの修正点](https://github.com/icoxfog417/baby-steps-of-rl-ja/pull/17/files)
+* [改訂第2版での修正点](https://github.com/icoxfog417/baby-steps-of-rl-ja/milestone/2?closed=1)
+  * [ソースコードの修正点](https://github.com/icoxfog417/baby-steps-of-rl-ja/pull/35/files)
 
 誤記/表記についての指摘、またサンプルコードの実行エラーについては[Issueにて](https://github.com/icoxfog417/baby-steps-of-rl-ja/issues/new)ご連絡をお願いします。
 
@@ -53,12 +54,10 @@ cd baby-steps-of-rl-ja
 
 ```
 conda create -n rl-book python=3.6
-activate rl-book  # Mac/Linuxの場合 source activate rl-book
+conda activate rl-book
 ```
 
-`activate`を実行することで、ターミナルの先頭に`(rl-book)`がついたでしょうか。これが、実行環境が有効化されているサインです。本書のソースコードを実行する際は、まず実行環境が有効化されているか=`(rl-book)`が先頭についているか、を確認してください。なお、無効化する際は`deactivate`のコマンドを実行します。
-
-(なお、`python=3.6`と指定しているのは、執筆時点のTensorFlowがPython3.6でしか動かないためです。[#20517](https://github.com/tensorflow/tensorflow/issues/20517)がCloseされればこの指定は不要になります)。
+`conda activate`を実行することで、ターミナルの先頭に`(rl-book)`がついたでしょうか。これが、実行環境が有効化されているサインです。本書のソースコードを実行する際は、まず実行環境が有効化されているか=`(rl-book)`が先頭についているか、を確認してください。なお、無効化する際は`conda deactivate`のコマンドを実行します。
 
 実行環境に、実行に必要なライブラリをインストールします(`(rl-book)`が先頭についているか確認して実行してください)。
 
@@ -85,7 +84,7 @@ GPUを利用した学習には、当然GPUが必要です(より具体的には�
 
 ### Local GPU Machine Setup
 
-GPUを搭載したマシンを用意する場合は、以下3つのステップでセットアップを行います。
+GPUを搭載したマシンがある場合、以下3つのステップでセットアップを行います。
 
 1. NVIDIA Driverのダウンロードとインストール
     * [NVIDIAドライバダウンロード](https://www.nvidia.co.jp/Download/index.aspx?lang=jp)
@@ -94,6 +93,7 @@ GPUを搭載したマシンを用意する場合は、以下3つのステップ�
     * [CUDA Toolkit Archive](https://developer.nvidia.com/cuda-toolkit-archive)から、使用するTensorFlowが対応しているバージョンをダウンロードしインストールします([TensorFlow 1.13以上はCUDA 10です](https://www.tensorflow.org/install/gpu))。
 3. cuDNNのインストール
     * [cuDNN](https://developer.nvidia.com/cudnn)をダウンロードし、Toolkitのフォルダに展開します。なお、cuDNNのダウンロードにはユーザー登録が必要です。
+4. `tensorflow`の代わりに、`tensorflow-gpu`をインストールします(`tensorflow`がインストールされている場合、アンインストールしてください)。
 
 `import tensorflow as tf`を実行し何もエラーがでなければセットアップは完了です。
 
@@ -104,12 +104,14 @@ GPUを搭載したマシンを用意する場合は、以下3つのステップ�
 
 ### Cloud GPU Machine Setup
 
-AWSやAzure、GCPではGPUインスタンスを提供しています。それらを使用すれば、GPU搭載マシンを用意する必要はありません。ただ、当然お金がかかるのでハードルがちょっと高いのも事実です。そこで、ちょっとだけGPUを使用した計算ができるGoogle Colaboratoryを紹介します。
+AWSやAzure、GCPではGPUインスタンスを提供しています。それらを使用すれば、GPU搭載マシンを用意する必要はありません。GPUインスタンスでのセットアップ手順は[Local GPU Machine Setup](https://github.com/icoxfog417/baby-steps-of-rl-ja#local-gpu-machine-setup)と同じです。セットアップ済みのインスタンス(SageMakerなど)の場合、セットアップの必要もありません。
+
+GPUインスタンスの使用には当然料金がかかります。そこで、無料でGPUを使用した計算ができるGoogle Colaboratoryを紹介します。
 
 * [Day4: 価値評価に深層学習を適用する: Deep Q-Network](https://colab.research.google.com/drive/1QZs38jqCaSIpoKmoIl8XxVJUwdG78Hb8)
 * [Day4: 戦略に深層学習を適用する: Advantage Actor Critic(A2C)](https://colab.research.google.com/drive/1IzXGuNj4ZbsuWC7ei98ZzKrVk7mPS1t-)
 
-Google Colaboratoryは、オンライン上でJupyter Notebookが使えるサービスです。GPUを使った計算も行うことができます(ただ、実行時間が限られています)。長期の実行は行えませんが、可能な範囲で学習してモデルをダウンロードするには十分使えます。
+Google Colaboratoryは、オンライン上でJupyter Notebookが使えるサービスです。GPUを使った計算も行うことができます。ただ、実行時間が限られています。長期の実行は行えませんが、可能な範囲で学習してモデルをダウンロードするには十分使えます。
 
 
 ## Day1: 強化学習の位置づけを知る
@@ -129,8 +131,8 @@ Google Colaboratoryは、オンライン上でJupyter Notebookが使えるサー
   * 強化学習は、連続した行動を通じて獲得できる「報酬の総和」を最大化することを目的とする。
   * 行動の評価方法と、(評価に基づく)行動の選び方(=戦略)を学習する。
 * 強化学習のメリット・デメリット
-  * メリット: 評価尺度の定義が難しいタスクでも扱うことができる(行動の評価方法を学習するため)。
-  * デメリット: どんな評価を元に、どんな行動を学習するのかはモデル任せになる。
+  * メリット: 評価が難しいタスクでも扱うことができる(行動の評価方法を学習するため)。
+  * デメリット: どんな行動を学習するかは制御できない(モデルが自ら獲得するため)。
 * 強化学習の基本的な仕組み
   * 強化学習では、与えられる「環境」が一定のルールに従っていることを仮定する。
   * このルールを、 **マルコフ決定過程(Markov Decision Process: MDP)** という。
