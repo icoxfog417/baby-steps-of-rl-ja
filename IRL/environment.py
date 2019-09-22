@@ -46,7 +46,7 @@ class GridWorldEnv(discrete.DiscreteEnv):
                 # Terminal state
                 for a in range(num_actions):
                     P[s][a] = []
-                    P[s][a].append([1.0, s, reward, done])
+                    P[s][a].append([1.0, None, reward, done])
             else:
                 for a in range(num_actions):
                     P[s][a] = []
@@ -183,6 +183,9 @@ if __name__ == "__main__":
         env.step(3)  # UP
         env.step(3)  # UP
         s, r, d, _ = env.step(0)  # LEFT
+        assert s == 0, "Agent locate last state"
+        s, r, d, _ = env.step(0)  # MOVE
+        assert s is None, "Next state does not exist"
         assert d, "Agent should reache the goal"
         assert r == 1, "Agent should get reward"
 
