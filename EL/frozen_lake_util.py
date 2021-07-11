@@ -29,7 +29,7 @@ def show_q_value(Q):
 
     for r in range(nrow):
         for c in range(ncol):
-            s = r * nrow + c
+            s = r * ncol + c
             state_exist = False
             if isinstance(Q, dict) and s in Q:
                 state_exist = True
